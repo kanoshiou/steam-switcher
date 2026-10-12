@@ -29,6 +29,11 @@ impl SteamInstall {
     pub fn loginusers_vdf(&self) -> PathBuf {
         self.root.join("config").join("loginusers.vdf")
     }
+
+    /// Directory where Steam caches per-account avatars as `<steam_id64>.png`.
+    pub fn avatarcache_dir(&self) -> PathBuf {
+        self.root.join("config").join("avatarcache")
+    }
 }
 
 /// Errors while locating Steam.

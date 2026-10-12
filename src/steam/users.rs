@@ -20,6 +20,9 @@ pub struct SteamUser {
     pub remember_password: bool,
     /// Unix timestamp of the last login; used for stable menu ordering.
     pub timestamp: u64,
+    /// Path of the locally cached avatar PNG (`config/avatarcache/<id64>.png`),
+    /// if Steam has one on disk. Rendering falls back to a letter tile otherwise.
+    pub avatar: Option<PathBuf>,
     /// Fields we don't model, preserved verbatim so write-back keeps them.
     pub extra_fields: Vec<(String, String)>,
 }
@@ -34,13 +37,28 @@ impl SteamUser {
             &self.persona_name
         }
     }
+
+    /// Path of the locally cached avatar PNG for this account, if Steam has one.
+    pub fn avatar_path(&self, steam: &SteamInstall) -> Option<PathBuf> {
+        let path = steam.avatarcache_dir().join(format!("{}.png", self.steam_id64));
+        path.is_file().then_some(path)
+    }
 }
 
-/// Load all accounts from the live `config/loginusers.vdf`.
+/// Load all accounts from the live `config/loginusers.vdf`, resolving each
+/// account's locally cached avatar PNG (if Steam has one on disk).
 pub fn load_users(steam: &SteamInstall) -> Result<Vec<SteamUser>, VdfError> {
     let path = loginusers_path(steam);
     let text = std::fs::read_to_string(&path)?;
-    vdf::parse_users(&text)
+    let mut users = vdf::parse_users(&text)?;
+    let cache_dir = steam.avatarcache_dir();
+    for user in &mut users {
+        let candidate = cache_dir.join(format!("{}.png", user.steam_id64));
+        if candidate.is_file() {
+            user.avatar = Some(candidate);
+        }
+    }
+    Ok(users)
 }
 
 /// Path of `loginusers.vdf` under the given Steam install.

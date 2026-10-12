@@ -459,7 +459,7 @@ pub fn cancel_game_pick(cx: &mut App) {
 // --------------------------------------------------------------------------
 
 /// Reload the window view's data (config/accounts/games) and re-render.
-fn refresh_window(cx: &mut App) {
+pub(crate) fn refresh_window(cx: &mut App) {
     with_window_view(cx, |view, cx| {
         view.reload_data();
         cx.notify();

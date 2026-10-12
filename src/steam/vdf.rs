@@ -55,6 +55,7 @@ pub fn parse_users(text: &str) -> Result<Vec<SteamUser>, VdfError> {
             most_recent: false,
             remember_password: false,
             timestamp: 0,
+            avatar: None,
             extra_fields: Vec::new(),
         };
 
@@ -249,6 +250,7 @@ mod tests {
             most_recent: false,
             remember_password: true,
             timestamp: 42,
+            avatar: None,
             extra_fields: vec![("Custom".into(), "va\"l\\ue".into())],
         };
         let text = serialize_users(std::slice::from_ref(&user));

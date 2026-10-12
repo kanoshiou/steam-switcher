@@ -15,6 +15,8 @@ use gpui_kit::{
 };
 use rust_i18n::t;
 
+use std::path::Path;
+
 use crate::config::Config;
 use crate::steam::discover::SteamInstall;
 use crate::steam::library::{self, SteamGame};
@@ -32,7 +34,11 @@ pub enum Page {
 pub struct AppWindow {
     steam: SteamInstall,
     pub(crate) users: Vec<SteamUser>,
+    /// Users ordered by most-recent play; render reads this directly.
+    pub(crate) users_sorted: Vec<SteamUser>,
     pub(crate) games: Vec<SteamGame>,
+    /// Lowercased game names, index-aligned with `games`, for cheap search.
+    pub(crate) games_lower: Vec<String>,
     pub(crate) config: Config,
     pub(crate) page: Page,
     pub(crate) sidebar_collapsed: bool,
@@ -41,6 +47,9 @@ pub struct AppWindow {
     /// Set when a game card was clicked: the games page then shows the
     /// account picker for that game instead of the grid.
     pub(crate) picked_game: Option<SteamGame>,
+    /// Whether the Steam client starts with Windows. Also read off the render
+    /// path: `autostart::is_enabled()` hits the registry every call.
+    autostart_enabled: bool,
 }
 
 impl AppWindow {
@@ -56,25 +65,33 @@ impl AppWindow {
         let search_input =
             cx.new(|cx| InputState::new(window, cx).placeholder(t!("games.search").to_string()));
         cx.subscribe(&search_input, Self::on_search_changed).detach();
+        let users_sorted = users::sorted_by_recency(users.clone());
         Self {
             steam,
             users,
+            users_sorted,
             games,
+            games_lower: Vec::new(),
             config,
             page: Page::Users,
             sidebar_collapsed: false,
             search_input,
             search_query: String::new(),
             picked_game: None,
+            autostart_enabled: crate::autostart::is_enabled(),
         }
     }
 
     /// Reload config, accounts and games from disk (called on window show and
-    /// after explicit refreshes).
+    /// after explicit refreshes), and recompute the cached UI facts. Expensive
+    /// work stays here — render reads the results.
     pub fn reload_data(&mut self) {
         self.config = Config::load();
+        self.autostart_enabled = crate::autostart::is_enabled();
         self.users = crate::app::load_users_lenient(&self.steam);
+        self.users_sorted = users::sorted_by_recency(self.users.clone());
         self.games = library::installed_games(&self.steam).unwrap_or_default();
+        self.games_lower = self.games.iter().map(|game| game.name.to_lowercase()).collect();
     }
 
     fn on_search_changed(
@@ -160,29 +177,11 @@ impl AppWindow {
             .border_color(theme.border)
             .paddings(px(8.0))
             .child(div().flex().flex_col().gap(px(8.0)).child(toggle).child(nav))
-            .child(self.steam_status_footer(cx))
+            .child(self.sidebar_footer(cx))
     }
 
-    fn steam_status_footer(&self, cx: &Context<Self>) -> gpui_kit::Div {
+    fn sidebar_footer(&self, cx: &Context<Self>) -> gpui_kit::Div {
         let theme = cx.theme().clone();
-        let running = crate::steam::switch::steam_running();
-        let mut status = div()
-            .flex()
-            .items_center()
-            .gap(px(6.0))
-            .child(
-                div()
-                    .size(px(8.0))
-                    .rounded_full()
-                    .bg(if running { theme.success } else { theme.muted_foreground }),
-            );
-        if !self.sidebar_collapsed {
-            status = status.child(Label::new(if running {
-                t!("sidebar.running").to_string()
-            } else {
-                t!("sidebar.stopped").to_string()
-            }));
-        }
         div()
             .flex()
             .items_center()
@@ -190,7 +189,6 @@ impl AppWindow {
             .paddings(px(8.0))
             .rounded(px(8.0))
             .bg(theme.secondary)
-            .child(status)
             .child(
                 div()
                     .id("restart-steam")
@@ -232,9 +230,10 @@ impl AppWindow {
         }
 
         let mut cards = div().flex().flex_col().gap(px(10.0)).w_full();
-        for user in users::sorted_by_recency(self.users.clone()) {
+        // Pre-sorted at load time so render does not clone/sort every frame.
+        for user in &self.users_sorted {
             let active = user.most_recent;
-            let display = self.config.display_for(&user);
+            let display = self.config.display_for(user);
             let steam_id64 = user.steam_id64.clone();
 
             let action: gpui_kit::AnyElement = if active {
@@ -268,7 +267,7 @@ impl AppWindow {
                     .border_1()
                     .border_color(if active { theme.primary } else { theme.border })
                     .bg(theme.secondary)
-                    .child(avatar(&display, &user.steam_id64))
+                    .child(avatar(&display, &user.steam_id64, user.avatar.as_deref()))
                     .child(
                         div()
                             .flex()
@@ -294,8 +293,8 @@ impl AppWindow {
         // Account picker replaces the grid once a game card was clicked.
         if let Some(game) = self.picked_game.clone() {
             let mut rows = div().flex().flex_col().gap(px(8.0)).w_full();
-            for user in users::sorted_by_recency(self.users.clone()) {
-                let display = self.config.display_for(&user);
+            for user in &self.users_sorted {
+                let display = self.config.display_for(user);
                 let steam_id64 = user.steam_id64.clone();
                 let appid = game.appid;
                 rows = rows.child(
@@ -313,7 +312,7 @@ impl AppWindow {
                         .on_click(move |_event, _window, cx| {
                             crate::app::request_switch_then_launch(cx, steam_id64.clone(), appid);
                         })
-                        .child(avatar(&display, &user.steam_id64))
+                        .child(avatar(&display, &user.steam_id64, user.avatar.as_deref()))
                         .child(Label::new(SharedString::from(display))),
                 );
             }
@@ -349,7 +348,9 @@ impl AppWindow {
         let filtered: Vec<&SteamGame> = self
             .games
             .iter()
-            .filter(|game| query.is_empty() || game.name.to_lowercase().contains(&query))
+            .zip(&self.games_lower)
+            .filter(|(_, lower)| query.is_empty() || lower.contains(&query))
+            .map(|(game, _)| game)
             .collect();
 
         let mut page = div()
@@ -461,13 +462,13 @@ impl AppWindow {
                     .child(Label::new(t!("settings.general").to_string()).text_size(px(14.0)))
                     .child(
                         Switch::new("autostart")
-                            .checked(crate::autostart::is_enabled())
+                            .checked(self.autostart_enabled)
                             .label(t!("settings.autostart").to_string())
                             .on_change(|checked, _window, cx| {
                                 if let Err(err) = crate::autostart::set_enabled(*checked) {
                                     tracing::error!(%err, "failed to set autostart");
                                 }
-                                cx.global_mut::<crate::app::AppState>().refresh_tray();
+                                crate::app::refresh_window(cx);
                             }),
                     )
                     .child(
@@ -563,8 +564,24 @@ fn game_card(game: &SteamGame, theme: &Theme) -> Stateful<gpui_kit::Div> {
         .on_click(move |_event, _window, cx| crate::app::pick_game(cx, appid))
 }
 
-/// Round initial-letter avatar with a stable color per SteamID.
-fn avatar(display: &str, steam_id64: &str) -> gpui_kit::Div {
+/// Square user avatar: the locally cached Steam avatar PNG when available,
+/// otherwise the initial-letter placeholder. No corner rounding.
+fn avatar(display: &str, steam_id64: &str, cached: Option<&Path>) -> gpui_kit::Div {
+    match cached {
+        Some(path) => div()
+            .size(px(36.0))
+            .overflow_hidden()
+            .child(
+                img(path.to_path_buf())
+                    .size_full()
+                    .object_fit(ObjectFit::Cover),
+            ),
+        None => placeholder_avatar(display, steam_id64),
+    }
+}
+
+/// Square initial-letter avatar with a stable color per SteamID.
+fn placeholder_avatar(display: &str, steam_id64: &str) -> gpui_kit::Div {
     let palette = [
         gpui_kit::hsla(0.58, 0.65, 0.55, 1.0),
         gpui_kit::hsla(0.12, 0.60, 0.52, 1.0),
@@ -579,7 +596,6 @@ fn avatar(display: &str, steam_id64: &str) -> gpui_kit::Div {
 
     div()
         .size(px(36.0))
-        .rounded_full()
         .flex()
         .items_center()
         .justify_center()

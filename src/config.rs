@@ -132,6 +132,7 @@ mod tests {
             most_recent: false,
             remember_password: false,
             timestamp: 0,
+            avatar: None,
             extra_fields: vec![],
         };
         assert_eq!(config.display_for(&user), "小号");
