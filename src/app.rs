@@ -1,37 +1,40 @@
-//! Application bootstrap: gpui main loop, tray + hotkey event bridging (D2),
-//! and the switch flows shared by the tray menu and the global hotkey.
+//! Application bootstrap: gpui main loop, tray event bridging (D2), and the
+//! switch flows shared by the tray menu and the window UI.
 //!
 //! Threading model (Phase 2): gpui owns the main thread and its win32 message
-//! pump, so the tray icon, the hotkey manager and the settings window all live
-//! on the main thread. Menu/hotkey/tray-click events arrive on foreign global
-//! channels; a single foreground task polls them and awaits a short timer
-//! between polls (never blocks the pump). The blocking switch flow itself runs
-//! on the background executor and reports back through `AsyncApp::update`.
+//! pump, so the tray icon and the app window live there. Menu/tray-click
+//! events arrive on foreign global channels; a single foreground task polls
+//! them and awaits a short timer between polls (never blocks the pump). The
+//! blocking switch flow itself runs on the background executor and reports
+//! back through `AsyncApp::update`.
 
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::time::Duration;
 
 use anyhow::Context as _;
-use global_hotkey::GlobalHotKeyManager;
-use gpui_kit::component::TitleBar;
-use gpui_kit::{AnyWindowHandle, App, AppContext, AsyncApp, Global, WindowOptions, px, size};
+use gpui_kit::component::ThemeMode;
+use gpui_kit::{AnyWindowHandle, App, AppContext, AsyncApp, Global, TitlebarOptions, WindowOptions, px, size};
+use rust_i18n::t;
 
 use crate::autostart;
 use crate::config::Config;
-use crate::hotkey;
 use crate::logging;
 use crate::notify;
-use crate::settings::SettingsWindow;
+use crate::app_window::{AppWindow, Page};
 use crate::singleton;
 use crate::steam::discover::{self, SteamInstall};
+use crate::steam::library;
 use crate::steam::switch::{self, SwitchOutcome};
 use crate::steam::users::{self, SteamUser};
 use crate::tray::{self, Action, Tray};
 use crate::winutil;
 
-/// Poll interval while waiting for foreign tray/hotkey events.
+/// Poll interval while waiting for foreign tray events.
 const EVENT_POLL: Duration = Duration::from_millis(30);
+/// Delay before firing the steam:// URL after a switch (Steam must boot; the
+/// protocol queues internally — docs/research-game-list.md).
+const LAUNCH_DELAY: Duration = Duration::from_secs(3);
 
 /// Main-thread application state. gpui globals are only touched from the main
 /// thread, which is exactly what the tray icon requires (it is not `Send`).
@@ -39,10 +42,10 @@ pub struct AppState {
     tray: Tray,
     steam: SteamInstall,
     window: Option<AnyWindowHandle>,
-    /// Approximation of the settings window's taskbar presence: `true` after
+    /// Approximation of the app window's taskbar presence: `true` after
     /// open/activate, `false` after a minimize. Tray left-click toggles it.
     window_shown: bool,
-    _hotkey_manager: GlobalHotKeyManager,
+    switching: Arc<AtomicBool>,
 }
 
 impl Global for AppState {}
@@ -56,26 +59,6 @@ impl AppState {
     }
 }
 
-/// Bring the settings window to the front (restores from minimized).
-fn show_window(cx: &mut App) {
-    let window = cx.global_mut::<AppState>().window;
-    if let Some(window) = window {
-        // Err = the window was closed meanwhile; nothing to show.
-        let _ = window.update(cx, |_, window, _| window.activate_window());
-    }
-    cx.global_mut::<AppState>().window_shown = true;
-}
-
-/// Minimize the settings window (gpui has no hide; minimize is the tray-app
-/// compromise planned in docs/plan.md P2).
-fn hide_window(cx: &mut App) {
-    let window = cx.global_mut::<AppState>().window;
-    if let Some(window) = window {
-        let _ = window.update(cx, |_, window, _| window.minimize_window());
-    }
-    cx.global_mut::<AppState>().window_shown = false;
-}
-
 /// Start the application. Returns when the process exits.
 pub fn run() -> anyhow::Result<()> {
     logging::init().context("initializing logging")?;
@@ -86,8 +69,8 @@ pub fn run() -> anyhow::Result<()> {
         Ok(guard) => guard,
         Err(singleton::SingletonError::AlreadyRunning) => {
             winutil::info_dialog(
-                "steam-switcher is already running in the system tray.",
-                "Steam Switcher",
+                &t!("msg.already_running"),
+                &t!("app.title"),
             );
             return Ok(());
         }
@@ -98,77 +81,92 @@ pub fn run() -> anyhow::Result<()> {
         Ok(steam) => steam,
         Err(err) => {
             winutil::info_dialog(
-                &format!("Could not locate the Steam installation.\n\n{err}"),
-                "Steam Switcher",
+                &t!("msg.steam_not_found", error = err.to_string()),
+                &t!("app.title"),
             );
             return Err(err.into());
         }
     };
     tracing::info!(root = %steam.root.display(), "steam discovered");
 
-    // Shared guard against concurrent switches (tray menu vs hotkey).
-    let switching = Arc::new(AtomicBool::new(false));
-
-    run_gpui(steam, switching);
+    run_gpui(steam);
     Ok(())
 }
 
 /// Bring up gpui, the tray and the event loop. Never returns.
-fn run_gpui(steam: SteamInstall, switching: Arc<AtomicBool>) {
+fn run_gpui(steam: SteamInstall) {
     gpui_kit::application().run(move |cx: &mut App| {
         gpui_kit::init(cx);
 
+        // Apply persisted locale + theme before anything renders.
         let config = Config::load();
-        let users = load_users_lenient(&steam);
-        let tray = Tray::new(&users, autostart::is_enabled(), &config)
-            .expect("failed to create tray icon");
-        let hotkey_manager = GlobalHotKeyManager::new().expect("failed to create hotkey manager");
-        hotkey::register_default(&hotkey_manager).expect("failed to register global hotkey");
-        tracing::info!(
-            "hotkey {} registered (cycles to the next account)",
-            hotkey::DEFAULT_HOTKEY_LABEL
-        );
+        rust_i18n::set_locale(config.language());
+        apply_theme(config.theme(), cx);
 
-        // Open the settings window hidden; it is shown from the tray.
+        let users = load_users_lenient(&steam);
+        let games = library::installed_games(&steam).unwrap_or_default();
+        let tray =
+            Tray::new(&users, autostart::is_enabled(), &config).expect("failed to create tray icon");
+
+        // Native window frame: real minimize/maximize/close buttons (the
+        // custom TitleBar draws no working controls on Windows).
         let window_options = WindowOptions {
-            window_min_size: Some(size(px(560.0), px(480.0))),
+            window_min_size: Some(size(px(640.0), px(520.0))),
             show: false,
-            ..TitleBar::window_options()
+            titlebar: Some(TitlebarOptions {
+                title: Some(t!("app.title").to_string().into()),
+                appears_transparent: false,
+                ..Default::default()
+            }),
+            ..Default::default()
         };
-        let users_for_window = users.clone();
-        let config_for_window = config.clone();
         let (handle, _view) = gpui_kit::open_window(window_options, cx, |window, cx| {
-            cx.new(|cx| SettingsWindow::new(users_for_window, config_for_window, window, cx))
+            let users_for_window = users.clone();
+            let games_for_window = games.clone();
+            let config_for_window = config.clone();
+            cx.new(|cx| {
+                AppWindow::new(steam.clone(), users_for_window, games_for_window, config_for_window, window, cx)
+            })
         })
-        .expect("failed to open the settings window");
+        .expect("failed to open the app window");
 
         cx.set_global(AppState {
             tray,
             steam,
             window: Some(handle),
             window_shown: false,
-            _hotkey_manager: hotkey_manager,
+            switching: Arc::new(AtomicBool::new(false)),
         });
 
         // Veto real closes: the X button minimizes instead (tray-app lifecycle).
         let _ = handle.update(cx, |_, window, cx| {
             window.on_window_should_close(cx, |_window, cx| {
-                hide_window(cx);
+                minimize_window(cx);
                 false
             });
         });
 
         // D2 bridge: poll the foreign event channels on the main thread with
         // async waits between polls, so the win32 pump stays responsive.
-        cx.spawn(async move |cx| event_loop(cx, switching).await).detach();
+        cx.spawn(async move |cx| event_loop(cx).await).detach();
 
         tracing::info!("gui ready");
     });
 }
 
-/// Drain tray-menu, hotkey and tray-click events, dispatching each on the
-/// main thread. Switch flows hop to the background executor while running.
-async fn event_loop(cx: &mut AsyncApp, switching: Arc<AtomicBool>) {
+/// Apply the configured theme mode (called at startup and from settings).
+fn apply_theme(mode: &str, cx: &mut App) {
+    match mode {
+        "dark" => gpui_kit::component::Theme::change(ThemeMode::Dark, None, cx),
+        "light" => gpui_kit::component::Theme::change(ThemeMode::Light, None, cx),
+        // "system": follow the OS appearance.
+        _ => gpui_kit::component::Theme::sync_system_appearance(None, cx),
+    }
+}
+
+/// Drain tray-menu and tray-click events, dispatching each on the main
+/// thread. Switch flows hop to the background executor while running.
+async fn event_loop(cx: &mut AsyncApp) {
     use tray_icon::{MouseButton, MouseButtonState, TrayIconEvent};
 
     loop {
@@ -179,24 +177,27 @@ async fn event_loop(cx: &mut AsyncApp, switching: Arc<AtomicBool>) {
             match tray::parse_action(&event.id) {
                 Some(Action::Switch(steam_id64)) => switch_requests.push(steam_id64),
                 Some(Action::Refresh) => {
-                    cx.update(|cx| cx.global_mut::<AppState>().refresh_tray());
+                    cx.update(|cx| {
+                        cx.global_mut::<AppState>().refresh_tray();
+                        refresh_window(cx);
+                    });
                 }
                 Some(Action::ToggleAutostart) => {
                     cx.update(|cx| {
                         match autostart::toggle() {
                             Ok(enabled) => notify::show(
-                                "Steam Switcher",
-                                if enabled {
-                                    "steam-switcher will start with Windows."
+                                &t!("app.title"),
+                                &if enabled {
+                                    t!("toast.autostart_on")
                                 } else {
-                                    "steam-switcher will no longer start with Windows."
+                                    t!("toast.autostart_off")
                                 },
                             ),
                             Err(err) => {
                                 tracing::error!(%err, "failed to toggle autostart");
                                 notify::show(
-                                    "Steam Switcher",
-                                    &format!("Failed to toggle autostart: {err}"),
+                                    &t!("app.title"),
+                                    &t!("toast.autostart_failed", error = err.to_string()),
                                 );
                             }
                         }
@@ -204,18 +205,13 @@ async fn event_loop(cx: &mut AsyncApp, switching: Arc<AtomicBool>) {
                     });
                 }
                 Some(Action::Settings) => {
-                    cx.update(show_window);
+                    cx.update(|cx| {
+                        show_window(cx);
+                        refresh_window(cx);
+                    });
                 }
                 Some(Action::Quit) => quit = true,
                 None => {}
-            }
-        }
-
-        while let Ok(event) = global_hotkey::GlobalHotKeyEvent::receiver().try_recv() {
-            if hotkey::is_our_press(&event)
-                && let Some(next) = cx.update(next_account_id)
-            {
-                switch_requests.push(next);
             }
         }
 
@@ -240,15 +236,19 @@ async fn event_loop(cx: &mut AsyncApp, switching: Arc<AtomicBool>) {
                                 window.activate_window()
                             }
                         });
+                        cx.global_mut::<AppState>().window_shown = !shown;
+                        if !shown {
+                            refresh_window(cx);
+                        }
                     }
-                    cx.global_mut::<AppState>().window_shown = !shown;
                 });
             }
         }
 
         for steam_id64 in switch_requests {
+            let switching = cx.update(|cx| cx.global::<AppState>().switching.clone());
             if switching.swap(true, Ordering::SeqCst) {
-                notify::show("Steam Switcher", "A switch is already in progress — hold on.");
+                notify::show(&t!("app.title"), &t!("toast.busy"));
                 continue;
             }
             do_switch(cx, &steam_id64, &switching).await;
@@ -264,25 +264,10 @@ async fn event_loop(cx: &mut AsyncApp, switching: Arc<AtomicBool>) {
     }
 }
 
-/// The account after the active one in recency order (hotkey cycling).
-fn next_account_id(cx: &mut App) -> Option<String> {
-    let steam = cx.global_mut::<AppState>().steam.clone();
-    let users = load_users_lenient(&steam);
-    if users.len() < 2 {
-        notify::show("Steam Switcher", "Only one Steam account is remembered — nothing to cycle.");
-        return None;
-    }
-    let users = users::sorted_by_recency(users);
-    let next = match users.iter().position(|u| u.most_recent) {
-        Some(index) => (index + 1) % users.len(),
-        None => 0,
-    };
-    Some(users[next].steam_id64.clone())
-}
-
-/// Run the full switch flow on the background executor, then refresh the tray.
+/// Run the full switch flow on the background executor, then refresh tray and
+/// window. Shared by the tray menu, the users page and game launches.
 async fn do_switch(cx: &mut AsyncApp, steam_id64: &str, switching: &AtomicBool) {
-    let steam = cx.update(|cx| cx.global_mut::<AppState>().steam.clone());
+    let steam = cx.update(|cx| cx.global::<AppState>().steam.clone());
     let steam_id64 = steam_id64.to_string();
 
     let outcome = cx
@@ -292,14 +277,10 @@ async fn do_switch(cx: &mut AsyncApp, steam_id64: &str, switching: &AtomicBool) 
 
     cx.update(|cx| {
         cx.global_mut::<AppState>().refresh_tray();
-        match outcome {
-            Ok(SwitchOutcome::Switched) => {} // perform_switch toasted
-            Ok(SwitchOutcome::AlreadyActive) => {}
-            Ok(SwitchOutcome::CancelledByUser) => {}
-            Err(err) => {
-                tracing::error!(%err, "switch failed");
-                notify::show("Steam Switcher", &format!("Switch failed: {err}"));
-            }
+        refresh_window(cx);
+        if let Err(err) = &outcome {
+            tracing::error!(%err, "switch failed");
+            notify::show(&t!("app.title"), &t!("toast.switch_failed", error = err.to_string()));
         }
     });
     switching.store(false, Ordering::SeqCst);
@@ -313,16 +294,13 @@ fn perform_switch(
 ) -> Result<SwitchOutcome, switch::SwitchError> {
     let users = users::load_users(steam)?;
     let Some(target) = users.iter().find(|u| u.steam_id64 == steam_id64) else {
-        // Menu or hotkey list was stale; the caller refreshes the tray after.
-        notify::show(
-            "Steam Switcher",
-            "That account is no longer in loginusers.vdf — list refreshed.",
-        );
+        // Menu or list was stale; the caller refreshes the UI after.
+        notify::show(&t!("app.title"), &t!("toast.stale_account"));
         return Ok(SwitchOutcome::CancelledByUser);
     };
     let label = target.display_name().to_string();
 
-    notify::show("Steam Switcher", &format!("Switching to {label}… (Steam will restart)"));
+    notify::show(&t!("app.title"), &t!("toast.switching", name = label.clone()));
 
     // Config-gated, non-skippable confirmation when Steam games are running.
     let confirm = |games: &[String]| -> bool {
@@ -330,36 +308,188 @@ fn perform_switch(
             return true;
         }
         winutil::confirm_dialog(
-            &format!(
-                "These Steam games are running:\n\n{}\n\nQuitting Steam now may lose unsaved \
-                 progress (cloud saves upload on exit).\n\nQuit Steam and switch anyway?",
-                games.join("\n")
+            &t!(
+                "msg.games_running",
+                games = games.join("\n")
             ),
-            "Steam games are running",
+            &t!("msg.games_running_title"),
         )
     };
 
     match switch::switch_to_account(steam, steam_id64, &confirm) {
         Ok(SwitchOutcome::Switched) => {
-            notify::show("Steam Switcher", &format!("Switched to {label}."));
+            notify::show(&t!("app.title"), &t!("toast.switched", name = label));
             Ok(SwitchOutcome::Switched)
         }
         Ok(SwitchOutcome::AlreadyActive) => {
-            notify::show("Steam Switcher", &format!("Already using {label}."));
+            notify::show(&t!("app.title"), &t!("toast.already_active", name = label));
             Ok(SwitchOutcome::AlreadyActive)
         }
         other => other,
     }
 }
 
+// --------------------------------------------------------------------------
+// Entry points used by the window UI (all run on the main thread).
+// --------------------------------------------------------------------------
+
 /// Reload accounts; on failure keep an empty list and toast instead of dying.
-fn load_users_lenient(steam: &SteamInstall) -> Vec<SteamUser> {
+pub fn load_users_lenient(steam: &SteamInstall) -> Vec<SteamUser> {
     match users::load_users(steam) {
         Ok(users) => users,
         Err(err) => {
             tracing::error!(%err, "failed to load loginusers.vdf");
-            notify::show("Steam Switcher", &format!("Could not read Steam accounts: {err}"));
+            notify::show(&t!("app.title"), &t!("toast.read_failed", error = err.to_string()));
             Vec::new()
         }
+    }
+}
+
+/// Switch to the given account (fire and forget; toasts report progress).
+pub fn request_switch(cx: &mut App, steam_id64: String) {
+    let switching = cx.global::<AppState>().switching.clone();
+    if switching.swap(true, Ordering::SeqCst) {
+        notify::show(&t!("app.title"), &t!("toast.busy"));
+        return;
+    }
+    cx.spawn(async move |cx| do_switch(cx, &steam_id64, &switching).await)
+        .detach();
+}
+
+/// Switch to the account, then launch the game once Steam is back up.
+pub fn request_switch_then_launch(cx: &mut App, steam_id64: String, appid: u32) {
+    let switching = cx.global::<AppState>().switching.clone();
+    if switching.swap(true, Ordering::SeqCst) {
+        notify::show(&t!("app.title"), &t!("toast.busy"));
+        return;
+    }
+    cx.spawn(async move |cx| {
+        do_switch(cx, &steam_id64, &switching).await;
+        // The switch either restarted Steam or it was already running; the
+        // protocol queues requests while Steam boots (docs/research-game-list.md).
+        cx.background_executor().timer(LAUNCH_DELAY).await;
+        if let Err(err) = crate::steam::launch::launch_game(appid) {
+            tracing::error!(%err, "failed to launch game");
+        }
+    })
+    .detach();
+}
+
+/// Restart Steam cleanly from the sidebar footer button.
+pub fn request_restart_steam(cx: &mut App) {
+    let steam = cx.global::<AppState>().steam.clone();
+    notify::show(&t!("app.title"), &t!("toast.restarting_steam"));
+    cx.spawn(async move |cx| {
+        let result = cx
+            .background_executor()
+            .spawn(async move { switch::restart_steam(&steam) })
+            .await;
+        cx.update(|cx| {
+            match result {
+                Ok(()) => notify::show(&t!("app.title"), &t!("toast.restarted_steam")),
+                Err(err) => {
+                    tracing::error!(%err, "failed to restart steam");
+                    notify::show(&t!("app.title"), &t!("toast.switch_failed", error = err.to_string()));
+                }
+            }
+            refresh_window(cx);
+        });
+    })
+    .detach();
+}
+
+/// Persist the language choice and re-render everything (tray included).
+pub fn set_language(cx: &mut App, code: &'static str) {
+    let mut config = Config::load();
+    config.language = Some(code.to_string());
+    if let Err(err) = config.save() {
+        tracing::error!(%err, "failed to save config");
+    }
+    rust_i18n::set_locale(code);
+    cx.global_mut::<AppState>().refresh_tray();
+    refresh_window(cx);
+}
+
+/// Persist the theme choice and apply it immediately.
+pub fn set_theme(cx: &mut App, code: &'static str) {
+    let mut config = Config::load();
+    config.theme = Some(code.to_string());
+    if let Err(err) = config.save() {
+        tracing::error!(%err, "failed to save config");
+    }
+    apply_theme(code, cx);
+    refresh_window(cx);
+}
+
+/// Sidebar navigation: switch the visible page.
+pub fn select_page(cx: &mut App, page: Page) {
+    with_window_view(cx, |view, cx| {
+        view.page = page;
+        cx.notify();
+    });
+}
+
+/// Sidebar collapse toggle.
+pub fn toggle_sidebar(cx: &mut App) {
+    with_window_view(cx, |view, cx| {
+        view.sidebar_collapsed = !view.sidebar_collapsed;
+        cx.notify();
+    });
+}
+
+/// A game card was clicked: show the account picker for it.
+pub fn pick_game(cx: &mut App, appid: u32) {
+    with_window_view(cx, |view, cx| {
+        view.picked_game = view.games.iter().find(|g| g.appid == appid).cloned();
+        view.page = Page::Games;
+        cx.notify();
+    });
+}
+
+/// Close the account picker without launching anything.
+pub fn cancel_game_pick(cx: &mut App) {
+    with_window_view(cx, |view, cx| {
+        view.picked_game = None;
+        cx.notify();
+    });
+}
+
+// --------------------------------------------------------------------------
+// Window plumbing helpers.
+// --------------------------------------------------------------------------
+
+/// Reload the window view's data (config/accounts/games) and re-render.
+fn refresh_window(cx: &mut App) {
+    with_window_view(cx, |view, cx| {
+        view.reload_data();
+        cx.notify();
+    });
+}
+
+/// Restore/activate the app window.
+fn show_window(cx: &mut App) {
+    let window = cx.global_mut::<AppState>().window;
+    if let Some(window) = window {
+        // Err = the window was closed meanwhile; nothing to show.
+        let _ = window.update(cx, |_, window, _| window.activate_window());
+    }
+    cx.global_mut::<AppState>().window_shown = true;
+}
+
+/// Minimize the app window (gpui has no hide; minimize is the tray-app
+/// compromise planned in docs/plan.md P2).
+fn minimize_window(cx: &mut App) {
+    let window = cx.global_mut::<AppState>().window;
+    if let Some(window) = window {
+        let _ = window.update(cx, |_, window, _| window.minimize_window());
+    }
+    cx.global_mut::<AppState>().window_shown = false;
+}
+
+/// Run `f` against the app window's root view.
+fn with_window_view(cx: &mut App, f: impl FnOnce(&mut AppWindow, &mut gpui_kit::Context<AppWindow>)) {
+    let handle = cx.global::<AppState>().window;
+    if let Some(handle) = handle.and_then(|h| h.downcast::<AppWindow>()) {
+        let _ = handle.update(cx, |view, _window, cx| f(view, cx));
     }
 }

@@ -9,10 +9,11 @@ license = "MIT"
 [dependencies]
 # --- P1: tray and OS integration ---
 tray-icon = "0.26"
-global-hotkey = "0.8"
 sysinfo = "0.39"
 notify-rust = "4"
 gpui-kit = "0.7"
+rust-i18n = "4"
+sys-locale = "0.3"
 
 # --- Steam interaction (cross-platform) ---
 keyvalues-parser = "0.2"

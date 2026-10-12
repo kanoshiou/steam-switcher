@@ -1,15 +1,18 @@
 //! steam-switcher library root.
 //!
 //! Module map (see docs/plan.md for the phased roadmap):
-//! - [`steam`]: Steam interaction core (discovery, loginusers.vdf, switching)
-//! - [`app`]:   application bootstrap and the tray/hotkey event loop
+//! - [`steam`]: Steam interaction core (discovery, loginusers.vdf, library, launching)
+//! - [`app`]:   application bootstrap and the tray/event bridge
+//! - [`app_window`]: the gpui settings window (sidebar + pages)
 //! - [`tray`]:  tray icon and context menu
-//! - [`singleton`], [`autostart`], [`winutil`], [`hotkey`], [`notify`], [`logging`]:
+//! - [`singleton`], [`autostart`], [`winutil`], [`notify`], [`logging`]:
 //!   OS-integration helpers
+
+// i18n: translations live in `locales/*.yml`, English is the fallback.
+rust_i18n::i18n!("locales", fallback = "en");
 
 pub mod autostart;
 pub mod config;
-pub mod hotkey;
 pub mod logging;
 pub mod notify;
 pub mod singleton;
@@ -24,7 +27,7 @@ pub mod winutil;
 #[cfg(windows)]
 pub mod app;
 #[cfg(windows)]
-pub mod settings;
+pub mod app_window;
 
 /// Non-Windows builds have no tray/GUI yet (Windows-first; see docs/plan.md).
 #[cfg(not(windows))]

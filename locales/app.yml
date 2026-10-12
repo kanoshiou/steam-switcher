@@ -1,0 +1,261 @@
+_version: 2
+en:
+  app.title: Steam Switcher
+  nav.users: Accounts
+  nav.games: My Games
+  nav.settings: Settings
+  nav.collapse: Collapse sidebar
+  nav.expand: Expand sidebar
+  sidebar.steam_status: Steam process
+  sidebar.running: steam.exe (running)
+  sidebar.stopped: steam.exe (not running)
+  sidebar.restart: Restart Steam
+  users.title: Steam accounts
+  users.switch_here: Switch here
+  users.in_use: In use
+  users.empty: No Steam accounts found
+  users.empty_hint: Log in once with "remember password" and hit Refresh.
+  games.title: Installed games
+  games.search: Search installed games…
+  games.empty: No games found
+  games.empty_hint: Install a game in Steam, then refresh.
+  games.pick_title: Launch with which account?
+  games.pick_hint: Steam will restart signed into the chosen account, then launch the game.
+  games.cancel: Cancel
+  settings.title: Settings
+  settings.language: Language
+  settings.theme: Theme
+  settings.theme_system: System
+  settings.theme_dark: Dark
+  settings.theme_light: Light
+  settings.general: General
+  settings.autostart: Start with Windows
+  settings.confirm_switch: Ask before switching while Steam games are running
+  tray.refresh: Refresh
+  tray.settings: Settings…
+  tray.quit: Quit
+  tray.autostart: Start with Windows
+  tray.no_accounts: No Steam accounts found
+  toast.refreshed: Account list refreshed.
+  toast.autostart_on: steam-switcher will start with Windows.
+  toast.autostart_off: steam-switcher will no longer start with Windows.
+  toast.autostart_failed: "Failed to toggle autostart: %{error}"
+  toast.busy: A switch is already in progress — hold on.
+  toast.already_active: "Already using %{name}."
+  toast.switching: "Switching to %{name}… (Steam will restart)"
+  toast.switched: "Switched to %{name}."
+  toast.switch_failed: "Switch failed: %{error}"
+  toast.stale_account: That account is no longer in loginusers.vdf — list refreshed.
+  toast.read_failed: "Could not read Steam accounts: %{error}"
+  toast.single_account: Only one Steam account is remembered — nothing to cycle.
+  toast.restarting_steam: Restarting Steam…
+  toast.restarted_steam: Steam restarted.
+  msg.games_running: |-
+    These Steam games are running:
+
+    %{games}
+
+    Quitting Steam now may lose unsaved progress (cloud saves upload on exit).
+
+    Quit Steam and switch anyway?
+  msg.games_running_title: Steam games are running
+  msg.already_running: steam-switcher is already running in the system tray.
+  msg.steam_not_found: |-
+    Could not locate the Steam installation.
+
+    %{error}
+zh-CN:
+  app.title: Steam 切换器
+  nav.users: 账户管理
+  nav.games: 我的游戏
+  nav.settings: 设置
+  nav.collapse: 收起侧边栏
+  nav.expand: 展开侧边栏
+  sidebar.steam_status: Steam 进程
+  sidebar.running: steam.exe(运行中)
+  sidebar.stopped: steam.exe(未运行)
+  sidebar.restart: 重启 Steam
+  users.title: Steam 账户
+  users.switch_here: 切换到此账号
+  users.in_use: 使用中
+  users.empty: 未找到 Steam 账号
+  users.empty_hint: 在 Steam 中登录一次并勾选“记住密码”,然后点击刷新。
+  games.title: 已安装游戏
+  games.search: 搜索已安装游戏…
+  games.empty: 没有找到游戏
+  games.empty_hint: 先在 Steam 中安装游戏,然后刷新。
+  games.pick_title: 使用哪个账号启动?
+  games.pick_hint: Steam 将以所选账号重启,然后自动启动游戏。
+  games.cancel: 取消
+  settings.title: 设置
+  settings.language: 语言
+  settings.theme: 主题
+  settings.theme_system: 跟随系统
+  settings.theme_dark: 深色
+  settings.theme_light: 浅色
+  settings.general: 常规
+  settings.autostart: 开机自动启动
+  settings.confirm_switch: 有 Steam 游戏在运行时,切换前先确认
+  tray.refresh: 刷新
+  tray.settings: 设置…
+  tray.quit: 退出
+  tray.autostart: 开机自动启动
+  tray.no_accounts: 未找到 Steam 账号
+  toast.refreshed: 账号列表已刷新。
+  toast.autostart_on: steam-switcher 将随 Windows 启动。
+  toast.autostart_off: steam-switcher 将不再随 Windows 启动。
+  toast.autostart_failed: "自启动设置失败:%{error}"
+  toast.busy: 已有一个切换正在进行,请稍候。
+  toast.already_active: "当前已在使用 %{name}。"
+  toast.switching: "正在切换到 %{name}…(Steam 将重启)"
+  toast.switched: "已切换到 %{name}。"
+  toast.switch_failed: "切换失败:%{error}"
+  toast.stale_account: 该账号已不在 loginusers.vdf 中,列表已刷新。
+  toast.read_failed: "读取 Steam 账号失败:%{error}"
+  toast.single_account: 只记住了一个 Steam 账号,没有可循环切换的目标。
+  toast.restarting_steam: 正在重启 Steam…
+  toast.restarted_steam: Steam 已重启。
+  msg.games_running: |-
+    以下 Steam 游戏正在运行:
+
+    %{games}
+
+    现在退出 Steam 可能丢失未上传的进度(云存档在退出时上传)。
+
+    仍要退出并切换吗?
+  msg.games_running_title: Steam 游戏正在运行
+  msg.already_running: steam-switcher 已经在系统托盘中运行。
+  msg.steam_not_found: |-
+    无法定位 Steam 安装目录。
+
+    %{error}
+ja:
+  app.title: Steam スイッチャー
+  nav.users: アカウント
+  nav.games: マイゲーム
+  nav.settings: 設定
+  nav.collapse: サイドバーを折りたたむ
+  nav.expand: サイドバーを展開
+  sidebar.steam_status: Steam プロセス
+  sidebar.running: steam.exe(実行中)
+  sidebar.stopped: steam.exe(停止中)
+  sidebar.restart: Steam を再起動
+  users.title: Steam アカウント
+  users.switch_here: このアカウントへ切替
+  users.in_use: 使用中
+  users.empty: Steam アカウントが見つかりません
+  users.empty_hint: 「パスワードを記憶」で一度ログインし、更新を押してください。
+  games.title: インストール済みゲーム
+  games.search: ゲームを検索…
+  games.empty: ゲームが見つかりません
+  games.empty_hint: Steam でゲームをインストールしてから更新してください。
+  games.pick_title: どのアカウントで起動しますか?
+  games.pick_hint: 選択したアカウントで Steam が再起動し、ゲームが起動します。
+  games.cancel: キャンセル
+  settings.title: 設定
+  settings.language: 言語
+  settings.theme: テーマ
+  settings.theme_system: システムに従う
+  settings.theme_dark: ダーク
+  settings.theme_light: ライト
+  settings.general: 全般
+  settings.autostart: Windows 起動時に開始
+  settings.confirm_switch: Steam ゲーム実行中は切替前に確認する
+  tray.refresh: 更新
+  tray.settings: 設定…
+  tray.quit: 終了
+  tray.autostart: Windows 起動時に開始
+  tray.no_accounts: Steam アカウントが見つかりません
+  toast.refreshed: アカウント一覧を更新しました。
+  toast.autostart_on: Windows 起動時に開始します。
+  toast.autostart_off: Windows 起動時に開始しないようになりました。
+  toast.autostart_failed: "自動起動の設定に失敗:%{error}"
+  toast.busy: 切替作業が進行中です。しばらくお待ちください。
+  toast.already_active: "既に %{name} を使用中です。"
+  toast.switching: "%{name} に切替中…(Steam が再起動します)"
+  toast.switched: "%{name} に切替ました。"
+  toast.switch_failed: "切替に失敗:%{error}"
+  toast.stale_account: このアカウントは loginusers.vdf に存在しません。一覧を更新しました。
+  toast.read_failed: "Steam アカウントの読み取りに失敗:%{error}"
+  toast.single_account: 記憶されたアカウントが 1 つのみのため、切替先がありません。
+  toast.restarting_steam: Steam を再起動中…
+  toast.restarted_steam: Steam を再起動しました。
+  msg.games_running: |-
+    次の Steam ゲームが実行中です:
+
+    %{games}
+
+    今 Steam を終了すると、未保存の進行状況が失われる可能性があります(クラウドセーブは終了時にアップロード)。
+
+    終了して切替ますか?
+  msg.games_running_title: Steam ゲームが実行中
+  msg.already_running: steam-switcher は既にシステムトレイで実行中です。
+  msg.steam_not_found: |-
+    Steam のインストール先が見つかりません。
+
+    %{error}
+ko:
+  app.title: Steam 스위처
+  nav.users: 계정
+  nav.games: 내 게임
+  nav.settings: 설정
+  nav.collapse: 사이드바 접기
+  nav.expand: 사이드바 펼치기
+  sidebar.steam_status: Steam 프로세스
+  sidebar.running: steam.exe(실행 중)
+  sidebar.stopped: steam.exe(꺼짐)
+  sidebar.restart: Steam 재시작
+  users.title: Steam 계정
+  users.switch_here: 이 계정으로 전환
+  users.in_use: 사용 중
+  users.empty: Steam 계정을 찾을 수 없음
+  users.empty_hint: 비밀번호 기억을 켜고 한 번 로그인한 뒤 새로 고침을 누르세요.
+  games.title: 설치된 게임
+  games.search: 설치된 게임 검색…
+  games.empty: 게임을 찾을 수 없음
+  games.empty_hint: Steam에서 게임을 설치한 뒤 새로 고침하세요.
+  games.pick_title: 어떤 계정으로 실행할까요?
+  games.pick_hint: 선택한 계정으로 Steam이 재시작된 후 게임이 실행됩니다.
+  games.cancel: 취소
+  settings.title: 설정
+  settings.language: 언어
+  settings.theme: 테마
+  settings.theme_system: 시스템 따라가기
+  settings.theme_dark: 다크
+  settings.theme_light: 라이트
+  settings.general: 일반
+  settings.autostart: Windows 시작 시 자동 실행
+  settings.confirm_switch: Steam 게임 실행 중 전환 시 확인
+  tray.refresh: 새로 고침
+  tray.settings: 설정…
+  tray.quit: 종료
+  tray.autostart: Windows 시작 시 자동 실행
+  tray.no_accounts: Steam 계정을 찾을 수 없음
+  toast.refreshed: 계정 목록을 새로 고쳤습니다.
+  toast.autostart_on: Windows 시작 시 자동 실행됩니다.
+  toast.autostart_off: Windows 시작 시 자동 실행되지 않습니다.
+  toast.autostart_failed: "자동 실행 설정 실패: %{error}"
+  toast.busy: 전환이 이미 진행 중입니다. 잠시만 기다려 주세요.
+  toast.already_active: "이미 %{name} 사용 중입니다."
+  toast.switching: "%{name}(으)로 전환 중…(Steam이 재시작됩니다)"
+  toast.switched: "%{name}(으)로 전환했습니다."
+  toast.switch_failed: "전환 실패: %{error}"
+  toast.stale_account: 이 계정은 loginusers.vdf에 없습니다. 목록을 새로 고쳤습니다.
+  toast.read_failed: "Steam 계정 읽기 실패: %{error}"
+  toast.single_account: 저장된 계정이 하나뿐이라 전환할 대상이 없습니다.
+  toast.restarting_steam: Steam 재시작 중…
+  toast.restarted_steam: Steam을 재시작했습니다.
+  msg.games_running: |-
+    다음 Steam 게임이 실행 중입니다:
+
+    %{games}
+
+    지금 Steam을 종료하면 저장되지 않은 진행 상황을 잃을 수 있습니다(클라우드 세이브는 종료 시 업로드).
+
+    그래도 종료하고 전환할까요?
+  msg.games_running_title: Steam 게임 실행 중
+  msg.already_running: steam-switcher가 이미 시스템 트레이에서 실행 중입니다.
+  msg.steam_not_found: |-
+    Steam 설치 위치를 찾을 수 없습니다.
+
+    %{error}

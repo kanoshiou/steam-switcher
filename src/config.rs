@@ -20,6 +20,12 @@ pub struct Config {
     /// dialog itself must not be skippable when enabled).
     #[serde(default = "default_true")]
     pub confirm_before_switch: bool,
+    /// UI language: `en`, `zh-CN`, `ja`, `ko`. `None` follows the system locale.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub language: Option<String>,
+    /// UI theme: `system`, `dark` or `light`. `None` follows the system.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub theme: Option<String>,
 }
 
 fn default_true() -> bool {
@@ -61,6 +67,37 @@ impl Config {
             Some(alias) if !alias.trim().is_empty() => alias.trim().to_string(),
             _ => user.display_name().to_string(),
         }
+    }
+
+    /// The UI language to use: configured value, else the system locale mapped
+    /// to one of the supported languages (`en`, `zh-CN`, `ja`, `ko`).
+    pub fn language(&self) -> &'static str {
+        match self.language.as_deref() {
+            Some("zh-CN") => "zh-CN",
+            Some("ja") => "ja",
+            Some("ko") => "ko",
+            Some("en") => "en",
+            _ => detect_language(),
+        }
+    }
+
+    /// The UI theme to use: configured value, else `system`.
+    pub fn theme(&self) -> &'static str {
+        match self.theme.as_deref() {
+            Some("dark") => "dark",
+            Some("light") => "light",
+            _ => "system",
+        }
+    }
+}
+
+/// Map the system locale to the closest supported UI language.
+fn detect_language() -> &'static str {
+    match sys_locale::get_locale().as_deref() {
+        Some(locale) if locale.starts_with("zh") => "zh-CN",
+        Some(locale) if locale.starts_with("ja") => "ja",
+        Some(locale) if locale.starts_with("ko") => "ko",
+        _ => "en",
     }
 }
 

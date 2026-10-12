@@ -103,6 +103,18 @@ pub fn switch_to_account(
     Ok(SwitchOutcome::Switched)
 }
 
+/// Whether the Steam client process is currently running.
+pub fn steam_running() -> bool {
+    let mut sys = System::new();
+    !find_steam_pids(&mut sys).is_empty()
+}
+
+/// Quit Steam gracefully and start it again (sidebar footer button).
+pub fn restart_steam(steam: &SteamInstall) -> Result<(), SwitchError> {
+    close_steam(steam)?;
+    launch_steam(steam)
+}
+
 /// Names of running processes whose executable lives under a Steam library's
 /// `steamapps/common` directory. Checking the process path directly avoids
 /// needing the full library parse (that arrives in Phase 3).

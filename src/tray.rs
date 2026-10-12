@@ -84,7 +84,7 @@ fn build_menu(users: &[SteamUser], autostart_enabled: bool, config: &Config) -> 
     if users.is_empty() {
         let _ = menu.append(&MenuItem::with_id(
             "no-accounts",
-            "No Steam accounts found",
+            rust_i18n::t!("tray.no_accounts"),
             false,
             None,
         ));
@@ -109,18 +109,28 @@ fn build_menu(users: &[SteamUser], autostart_enabled: bool, config: &Config) -> 
         let _ = menu.append(&PredefinedMenuItem::separator());
     }
 
-    let _ = menu.append(&MenuItem::with_id("refresh", "Refresh", true, None));
+    let _ = menu.append(&MenuItem::with_id(
+        "refresh",
+        rust_i18n::t!("tray.refresh"),
+        true,
+        None,
+    ));
     let _ = menu.append(&CheckMenuItem::with_id(
         "autostart",
-        "Start with Windows",
+        rust_i18n::t!("tray.autostart"),
         true,
         autostart_enabled,
         None,
     ));
     let _ = menu.append(&PredefinedMenuItem::separator());
-    let _ = menu.append(&MenuItem::with_id("settings", "Settings…", true, None));
+    let _ = menu.append(&MenuItem::with_id(
+        "settings",
+        rust_i18n::t!("tray.settings"),
+        true,
+        None,
+    ));
     let _ = menu.append(&PredefinedMenuItem::separator());
-    let _ = menu.append(&MenuItem::with_id("quit", "Quit", true, None));
+    let _ = menu.append(&MenuItem::with_id("quit", rust_i18n::t!("tray.quit"), true, None));
     menu
 }
 
