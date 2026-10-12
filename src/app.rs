@@ -14,7 +14,7 @@ use std::time::Duration;
 
 use anyhow::Context as _;
 use gpui_kit::component::ThemeMode;
-use gpui_kit::{AnyWindowHandle, App, AppContext, AsyncApp, Global, TitlebarOptions, WindowOptions, px, size};
+use gpui_kit::{AnyWindowHandle, App, AppContext, AsyncApp, Entity, Global, TitlebarOptions, WindowOptions, px, size};
 use rust_i18n::t;
 
 use crate::autostart;
@@ -42,6 +42,10 @@ pub struct AppState {
     tray: Tray,
     steam: SteamInstall,
     window: Option<AnyWindowHandle>,
+    /// The app window's content view. `gpui_kit::open_window` wraps the real
+    /// window root in `base::Root`, so the window handle cannot be downcast to
+    /// `AppWindow`; this entity is the way to reach the view.
+    view: Entity<AppWindow>,
     /// Approximation of the app window's taskbar presence: `true` after
     /// open/activate, `false` after a minimize. Tray left-click toggles it.
     window_shown: bool,
@@ -120,7 +124,7 @@ fn run_gpui(steam: SteamInstall) {
             }),
             ..Default::default()
         };
-        let (handle, _view) = gpui_kit::open_window(window_options, cx, |window, cx| {
+        let (handle, view) = gpui_kit::open_window(window_options, cx, |window, cx| {
             let users_for_window = users.clone();
             let games_for_window = games.clone();
             let config_for_window = config.clone();
@@ -134,14 +138,17 @@ fn run_gpui(steam: SteamInstall) {
             tray,
             steam,
             window: Some(handle),
+            view,
             window_shown: false,
             switching: Arc::new(AtomicBool::new(false)),
         });
 
         // Veto real closes: the X button minimizes instead (tray-app lifecycle).
+        // The callback runs while the window is already on the update stack, so
+        // re-entering `window.update` would silently fail — defer instead.
         let _ = handle.update(cx, |_, window, cx| {
             window.on_window_should_close(cx, |_window, cx| {
-                minimize_window(cx);
+                cx.defer(|cx| minimize_window(cx));
                 false
             });
         });
@@ -486,10 +493,10 @@ fn minimize_window(cx: &mut App) {
     cx.global_mut::<AppState>().window_shown = false;
 }
 
-/// Run `f` against the app window's root view.
+/// Run `f` against the app window's content view. Uses the view entity rather
+/// than the window handle because the window's root is `base::Root` (a
+/// `downcast::<AppWindow>` on it can never succeed).
 fn with_window_view(cx: &mut App, f: impl FnOnce(&mut AppWindow, &mut gpui_kit::Context<AppWindow>)) {
-    let handle = cx.global::<AppState>().window;
-    if let Some(handle) = handle.and_then(|h| h.downcast::<AppWindow>()) {
-        let _ = handle.update(cx, |view, _window, cx| f(view, cx));
-    }
+    let view = cx.global::<AppState>().view.clone();
+    view.update(cx, f);
 }
