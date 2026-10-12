@@ -61,6 +61,15 @@ pub fn toggle() -> Result<bool, AutostartError> {
     }
 }
 
+/// Set autostart to an exact state (used by the settings-window switch).
+pub fn set_enabled(enabled: bool) -> Result<(), AutostartError> {
+    if enabled {
+        enable()
+    } else {
+        disable().or(Ok(())) // already disabled is fine
+    }
+}
+
 /// Errors from toggling autostart.
 #[derive(Debug, thiserror::Error)]
 pub enum AutostartError {

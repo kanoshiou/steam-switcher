@@ -10,6 +10,7 @@
 use tray_icon::menu::{CheckMenuItem, Menu, MenuId, MenuItem, PredefinedMenuItem};
 use tray_icon::{Icon, TrayIcon, TrayIconBuilder};
 
+use crate::config::Config;
 use crate::steam::users::{self, SteamUser};
 
 /// Prefix for per-account menu item ids.
@@ -37,19 +38,27 @@ pub struct Tray {
 
 impl Tray {
     /// Create the tray icon with an initial menu.
-    pub fn new(users: &[SteamUser], autostart_enabled: bool) -> anyhow::Result<Self> {
+    ///
+    /// Left click does not open the menu; the app layer handles left-click
+    /// events (toggling the settings window) via [`TrayIconEvent`](tray_icon::TrayIconEvent).
+    pub fn new(users: &[SteamUser], autostart_enabled: bool, config: &Config) -> anyhow::Result<Self> {
         let icon = TrayIconBuilder::new()
             .with_id("steam-switcher")
+            .with_menu_on_left_click(false)
             .with_icon(default_icon()?)
             .with_tooltip("Steam Switcher")
-            .with_menu(Box::new(build_menu(users, autostart_enabled)))
+            .with_menu(Box::new(build_menu(users, autostart_enabled, config)))
             .build()?;
         Ok(Self { icon })
     }
 
     /// Replace the context menu (after a switch, refresh or autostart toggle).
-    pub fn update_menu(&self, users: &[SteamUser], autostart_enabled: bool) {
-        self.icon.set_menu(Some(Box::new(build_menu(users, autostart_enabled))));
+    pub fn update_menu(&self, users: &[SteamUser], autostart_enabled: bool, config: &Config) {
+        self.icon.set_menu(Some(Box::new(build_menu(
+            users,
+            autostart_enabled,
+            config,
+        ))));
     }
 }
 
@@ -68,8 +77,8 @@ pub fn parse_action(id: &MenuId) -> Option<Action> {
     }
 }
 
-/// Build the context menu from the current account list.
-fn build_menu(users: &[SteamUser], autostart_enabled: bool) -> Menu {
+/// Build the context menu from the current account list and config.
+fn build_menu(users: &[SteamUser], autostart_enabled: bool, config: &Config) -> Menu {
     let menu = Menu::new();
 
     if users.is_empty() {
@@ -81,11 +90,12 @@ fn build_menu(users: &[SteamUser], autostart_enabled: bool) -> Menu {
         ));
     }
     for user in users::sorted_by_recency(users.to_vec()) {
-        // Show the persona name; disambiguate with the account name when they differ.
-        let label = if !user.account_name.is_empty() && user.account_name != user.persona_name {
-            format!("{} ({})", user.display_name(), user.account_name)
-        } else {
-            user.display_name().to_string()
+        // Alias (when set) first, with the persona name for disambiguation.
+        let label = match config.aliases.get(&user.steam_id64) {
+            Some(alias) if !alias.trim().is_empty() => {
+                format!("{} ({})", alias.trim(), user.display_name())
+            }
+            _ => user.display_name().to_string(),
         };
         let _ = menu.append(&CheckMenuItem::with_id(
             format!("{ACCOUNT_PREFIX}{}", user.steam_id64),
@@ -108,12 +118,7 @@ fn build_menu(users: &[SteamUser], autostart_enabled: bool) -> Menu {
         None,
     ));
     let _ = menu.append(&PredefinedMenuItem::separator());
-    let _ = menu.append(&MenuItem::with_id(
-        "settings",
-        "Settings (coming in Phase 2)",
-        false,
-        None,
-    ));
+    let _ = menu.append(&MenuItem::with_id("settings", "Settings…", true, None));
     let _ = menu.append(&PredefinedMenuItem::separator());
     let _ = menu.append(&MenuItem::with_id("quit", "Quit", true, None));
     menu

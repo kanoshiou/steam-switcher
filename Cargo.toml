@@ -12,6 +12,7 @@ tray-icon = "0.26"
 global-hotkey = "0.8"
 sysinfo = "0.39"
 notify-rust = "4"
+gpui-kit = "0.7"
 
 # --- Steam interaction (cross-platform) ---
 keyvalues-parser = "0.2"
@@ -43,10 +44,7 @@ winresource = "0.1"
 
 # Used by examples/gen-icon.rs to write assets/icon.ico (dev-only, not in the app).
 [dev-dependencies]
-png = "0.17"
-
-# --- P2: gpui-kit settings window ---
-# gpui-kit = "0.58"   # Phase 2, see docs/plan.md
+png = "0.18"
 
 [profile.release]
 lto = "thin"
