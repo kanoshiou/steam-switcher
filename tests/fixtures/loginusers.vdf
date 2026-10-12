@@ -1,0 +1,22 @@
+"users"
+{
+	"76561198000000001"
+	{
+		"AccountName"		"player_a"
+		"PersonaName"		"PlayerA"
+		"RememberPassword"	"1"
+		"MostRecent"		"1"
+		"Timestamp"		"1710000000"
+		"WantsOfflineMode"	"0"
+		"SkipOfflineModeWarning"	"0"
+	}
+	// a comment the write-back is allowed to drop (AGENTS.md D1)
+	"76561198000000002"
+	{
+		"AccountName"		"player_b"
+		"PersonaName"		"玩家\"B\""
+		"RememberPassword"	"0"
+		"MostRecent"		"0"
+		"Timestamp"		"1710005000"
+	}
+}

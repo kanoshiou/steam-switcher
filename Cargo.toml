@@ -1,0 +1,53 @@
+[package]
+name = "steam-switcher"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.95"
+description = "Tray-based Steam account switcher with one-click game launch"
+license = "MIT"
+
+[dependencies]
+# --- P1: tray and OS integration ---
+tray-icon = "0.26"
+global-hotkey = "0.8"
+sysinfo = "0.39"
+notify-rust = "4"
+
+# --- Steam interaction (cross-platform) ---
+keyvalues-parser = "0.2"
+
+# --- General ---
+anyhow = "1"
+thiserror = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+tracing-appender = "0.2"
+crossbeam-channel = "0.5"
+chrono = "0.4"
+
+[target.'cfg(windows)'.dependencies]
+windows = { version = "0.62", features = [
+    "Win32_Foundation",
+    "Win32_Security",
+    "Win32_System_Threading",
+    "Win32_UI_WindowsAndMessaging",
+] }
+# Windows-only: compiling this on Linux emits a compile_error!
+winreg = "0.56"
+
+# Embeds assets/icon.ico into the exe (runs rc.exe from the Windows SDK).
+[target.'cfg(windows)'.build-dependencies]
+winresource = "0.1"
+
+# Used by examples/gen-icon.rs to write assets/icon.ico (dev-only, not in the app).
+[dev-dependencies]
+png = "0.17"
+
+# --- P2: gpui-kit settings window ---
+# gpui-kit = "0.58"   # Phase 2, see docs/plan.md
+
+[profile.release]
+lto = "thin"
+strip = true
