@@ -1,0 +1,65 @@
+_version: 1
+app.title: Steam スイッチャー
+nav.users: アカウント
+nav.games: マイゲーム
+nav.settings: 設定
+nav.collapse: サイドバーを折りたたむ
+nav.expand: サイドバーを展開
+sidebar.steam_status: Steam プロセス
+sidebar.running: steam.exe(実行中)
+sidebar.stopped: steam.exe(停止中)
+sidebar.restart: Steam を再起動
+users.title: Steam アカウント
+users.switch_here: このアカウントへ切替
+users.in_use: 使用中
+users.empty: Steam アカウントが見つかりません
+users.empty_hint: 「パスワードを記憶」で一度ログインし、更新を押してください。
+games.title: インストール済みゲーム
+games.search: ゲームを検索…
+games.empty: ゲームが見つかりません
+games.empty_hint: Steam でゲームをインストールしてから更新してください。
+games.pick_title: どのアカウントで起動しますか?
+games.pick_hint: 選択したアカウントで Steam が再起動し、ゲームが起動します。
+games.cancel: キャンセル
+settings.title: 設定
+settings.language: 言語
+settings.theme: テーマ
+settings.theme_system: システムに従う
+settings.theme_dark: ダーク
+settings.theme_light: ライト
+settings.general: 全般
+settings.autostart: Windows 起動時に開始
+settings.confirm_switch: Steam ゲーム実行中は切替前に確認する
+tray.refresh: 更新
+tray.settings: 設定…
+tray.quit: 終了
+tray.autostart: Windows 起動時に開始
+tray.no_accounts: Steam アカウントが見つかりません
+toast.refreshed: アカウント一覧を更新しました。
+toast.autostart_on: Windows 起動時に開始します。
+toast.autostart_off: Windows 起動時に開始しないようになりました。
+toast.autostart_failed: "自動起動の設定に失敗:%{error}"
+toast.busy: 切替作業が進行中です。しばらくお待ちください。
+toast.already_active: "既に %{name} を使用中です。"
+toast.switching: "%{name} に切替中…(Steam が再起動します)"
+toast.switched: "%{name} に切替ました。"
+toast.switch_failed: "切替に失敗:%{error}"
+toast.stale_account: このアカウントは loginusers.vdf に存在しません。一覧を更新しました。
+toast.read_failed: "Steam アカウントの読み取りに失敗:%{error}"
+toast.single_account: 記憶されたアカウントが 1 つのみのため、切替先がありません。
+toast.restarting_steam: Steam を再起動中…
+toast.restarted_steam: Steam を再起動しました。
+msg.games_running: |-
+  次の Steam ゲームが実行中です:
+
+  %{games}
+
+  今 Steam を終了すると、未保存の進行状況が失われる可能性があります(クラウドセーブは終了時にアップロード)。
+
+  終了して切替ますか?
+msg.games_running_title: Steam ゲームが実行中
+msg.already_running: steam-switcher は既にシステムトレイで実行中です。
+msg.steam_not_found: |-
+  Steam のインストール先が見つかりません。
+
+  %{error}

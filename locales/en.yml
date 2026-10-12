@@ -1,0 +1,65 @@
+_version: 1
+app.title: Steam Switcher
+nav.users: Accounts
+nav.games: My Games
+nav.settings: Settings
+nav.collapse: Collapse sidebar
+nav.expand: Expand sidebar
+sidebar.steam_status: Steam process
+sidebar.running: steam.exe (running)
+sidebar.stopped: steam.exe (not running)
+sidebar.restart: Restart Steam
+users.title: Steam accounts
+users.switch_here: Switch here
+users.in_use: In use
+users.empty: No Steam accounts found
+users.empty_hint: Log in once with "remember password" and hit Refresh.
+games.title: Installed games
+games.search: Search installed games…
+games.empty: No games found
+games.empty_hint: Install a game in Steam, then refresh.
+games.pick_title: Launch with which account?
+games.pick_hint: Steam will restart signed into the chosen account, then launch the game.
+games.cancel: Cancel
+settings.title: Settings
+settings.language: Language
+settings.theme: Theme
+settings.theme_system: System
+settings.theme_dark: Dark
+settings.theme_light: Light
+settings.general: General
+settings.autostart: Start with Windows
+settings.confirm_switch: Ask before switching while Steam games are running
+tray.refresh: Refresh
+tray.settings: Settings…
+tray.quit: Quit
+tray.autostart: Start with Windows
+tray.no_accounts: No Steam accounts found
+toast.refreshed: Account list refreshed.
+toast.autostart_on: steam-switcher will start with Windows.
+toast.autostart_off: steam-switcher will no longer start with Windows.
+toast.autostart_failed: "Failed to toggle autostart: %{error}"
+toast.busy: A switch is already in progress — hold on.
+toast.already_active: "Already using %{name}."
+toast.switching: "Switching to %{name}… (Steam will restart)"
+toast.switched: "Switched to %{name}."
+toast.switch_failed: "Switch failed: %{error}"
+toast.stale_account: That account is no longer in loginusers.vdf — list refreshed.
+toast.read_failed: "Could not read Steam accounts: %{error}"
+toast.single_account: Only one Steam account is remembered — nothing to cycle.
+toast.restarting_steam: Restarting Steam…
+toast.restarted_steam: Steam restarted.
+msg.games_running: |-
+  These Steam games are running:
+
+  %{games}
+
+  Quitting Steam now may lose unsaved progress (cloud saves upload on exit).
+
+  Quit Steam and switch anyway?
+msg.games_running_title: Steam games are running
+msg.already_running: steam-switcher is already running in the system tray.
+msg.steam_not_found: |-
+  Could not locate the Steam installation.
+
+  %{error}

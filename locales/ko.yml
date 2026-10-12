@@ -1,0 +1,65 @@
+_version: 1
+app.title: Steam 스위처
+nav.users: 계정
+nav.games: 내 게임
+nav.settings: 설정
+nav.collapse: 사이드바 접기
+nav.expand: 사이드바 펼치기
+sidebar.steam_status: Steam 프로세스
+sidebar.running: steam.exe(실행 중)
+sidebar.stopped: steam.exe(꺼짐)
+sidebar.restart: Steam 재시작
+users.title: Steam 계정
+users.switch_here: 이 계정으로 전환
+users.in_use: 사용 중
+users.empty: Steam 계정을 찾을 수 없음
+users.empty_hint: 비밀번호 기억을 켜고 한 번 로그인한 뒤 새로 고침을 누르세요.
+games.title: 설치된 게임
+games.search: 설치된 게임 검색…
+games.empty: 게임을 찾을 수 없음
+games.empty_hint: Steam에서 게임을 설치한 뒤 새로 고침하세요.
+games.pick_title: 어떤 계정으로 실행할까요?
+games.pick_hint: 선택한 계정으로 Steam이 재시작된 후 게임이 실행됩니다.
+games.cancel: 취소
+settings.title: 설정
+settings.language: 언어
+settings.theme: 테마
+settings.theme_system: 시스템 따라가기
+settings.theme_dark: 다크
+settings.theme_light: 라이트
+settings.general: 일반
+settings.autostart: Windows 시작 시 자동 실행
+settings.confirm_switch: Steam 게임 실행 중 전환 시 확인
+tray.refresh: 새로 고침
+tray.settings: 설정…
+tray.quit: 종료
+tray.autostart: Windows 시작 시 자동 실행
+tray.no_accounts: Steam 계정을 찾을 수 없음
+toast.refreshed: 계정 목록을 새로 고쳤습니다.
+toast.autostart_on: Windows 시작 시 자동 실행됩니다.
+toast.autostart_off: Windows 시작 시 자동 실행되지 않습니다.
+toast.autostart_failed: "자동 실행 설정 실패: %{error}"
+toast.busy: 전환이 이미 진행 중입니다. 잠시만 기다려 주세요.
+toast.already_active: "이미 %{name} 사용 중입니다."
+toast.switching: "%{name}(으)로 전환 중…(Steam이 재시작됩니다)"
+toast.switched: "%{name}(으)로 전환했습니다."
+toast.switch_failed: "전환 실패: %{error}"
+toast.stale_account: 이 계정은 loginusers.vdf에 없습니다. 목록을 새로 고쳤습니다.
+toast.read_failed: "Steam 계정 읽기 실패: %{error}"
+toast.single_account: 저장된 계정이 하나뿐이라 전환할 대상이 없습니다.
+toast.restarting_steam: Steam 재시작 중…
+toast.restarted_steam: Steam을 재시작했습니다.
+msg.games_running: |-
+  다음 Steam 게임이 실행 중입니다:
+
+  %{games}
+
+  지금 Steam을 종료하면 저장되지 않은 진행 상황을 잃을 수 있습니다(클라우드 세이브는 종료 시 업로드).
+
+  그래도 종료하고 전환할까요?
+msg.games_running_title: Steam 게임 실행 중
+msg.already_running: steam-switcher가 이미 시스템 트레이에서 실행 중입니다.
+msg.steam_not_found: |-
+  Steam 설치 위치를 찾을 수 없습니다.
+
+  %{error}

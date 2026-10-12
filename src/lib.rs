@@ -36,5 +36,5 @@ pub mod app {
     pub fn run() -> anyhow::Result<()> {
         eprintln!("steam-switcher: tray GUI is Windows-only in this phase");
         Ok(())
-    }
-}
+    }}
+

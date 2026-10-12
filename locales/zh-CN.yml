@@ -1,0 +1,65 @@
+_version: 1
+app.title: Steam 切换器
+nav.users: 账户管理
+nav.games: 我的游戏
+nav.settings: 设置
+nav.collapse: 收起侧边栏
+nav.expand: 展开侧边栏
+sidebar.steam_status: Steam 进程
+sidebar.running: steam.exe(运行中)
+sidebar.stopped: steam.exe(未运行)
+sidebar.restart: 重启 Steam
+users.title: Steam 账户
+users.switch_here: 切换到此账号
+users.in_use: 使用中
+users.empty: 未找到 Steam 账号
+users.empty_hint: 在 Steam 中登录一次并勾选“记住密码”,然后点击刷新。
+games.title: 已安装游戏
+games.search: 搜索已安装游戏…
+games.empty: 没有找到游戏
+games.empty_hint: 先在 Steam 中安装游戏,然后刷新。
+games.pick_title: 使用哪个账号启动?
+games.pick_hint: Steam 将以所选账号重启,然后自动启动游戏。
+games.cancel: 取消
+settings.title: 设置
+settings.language: 语言
+settings.theme: 主题
+settings.theme_system: 跟随系统
+settings.theme_dark: 深色
+settings.theme_light: 浅色
+settings.general: 常规
+settings.autostart: 开机自动启动
+settings.confirm_switch: 有 Steam 游戏在运行时,切换前先确认
+tray.refresh: 刷新
+tray.settings: 设置…
+tray.quit: 退出
+tray.autostart: 开机自动启动
+tray.no_accounts: 未找到 Steam 账号
+toast.refreshed: 账号列表已刷新。
+toast.autostart_on: steam-switcher 将随 Windows 启动。
+toast.autostart_off: steam-switcher 将不再随 Windows 启动。
+toast.autostart_failed: "自启动设置失败:%{error}"
+toast.busy: 已有一个切换正在进行,请稍候。
+toast.already_active: "当前已在使用 %{name}。"
+toast.switching: "正在切换到 %{name}…(Steam 将重启)"
+toast.switched: "已切换到 %{name}。"
+toast.switch_failed: "切换失败:%{error}"
+toast.stale_account: 该账号已不在 loginusers.vdf 中,列表已刷新。
+toast.read_failed: "读取 Steam 账号失败:%{error}"
+toast.single_account: 只记住了一个 Steam 账号,没有可循环切换的目标。
+toast.restarting_steam: 正在重启 Steam…
+toast.restarted_steam: Steam 已重启。
+msg.games_running: |-
+  以下 Steam 游戏正在运行:
+
+  %{games}
+
+  现在退出 Steam 可能丢失未上传的进度(云存档在退出时上传)。
+
+  仍要退出并切换吗?
+msg.games_running_title: Steam 游戏正在运行
+msg.already_running: steam-switcher 已经在系统托盘中运行。
+msg.steam_not_found: |-
+  无法定位 Steam 安装目录。
+
+  %{error}

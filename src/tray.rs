@@ -46,7 +46,7 @@ impl Tray {
             .with_id("steam-switcher")
             .with_menu_on_left_click(false)
             .with_icon(default_icon()?)
-            .with_tooltip("Steam Switcher")
+            .with_tooltip(rust_i18n::t!("app.title").to_string())
             .with_menu(Box::new(build_menu(users, autostart_enabled, config)))
             .build()?;
         Ok(Self { icon })
