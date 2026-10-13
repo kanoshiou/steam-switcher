@@ -3,9 +3,9 @@
 //!
 //! 1. `steamapps/libraryfolders.vdf` → every library partition path
 //! 2. `<library>/steamapps/appmanifest_<AppID>.acf` → appid, name, install state
-//! 3. Cover art from the client grid cache: `<Steam>/config/grid/<AppID>.png`
+//! 3. Cover art from the client's local caches (`resolve_cover`)
 
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use thiserror::Error;
 
@@ -118,8 +118,7 @@ fn parse_app_manifest(text: &str, appid: u32, steam: &SteamInstall) -> Option<St
         .and_then(|v| v.parse::<u64>().ok())
         .unwrap_or(0);
 
-    let grid_image = steam.root.join("config").join("grid").join(format!("{appid}.png"));
-    let grid_image = grid_image.is_file().then_some(grid_image);
+    let grid_image = resolve_cover(steam, appid);
 
     Some(SteamGame {
         appid,
@@ -127,6 +126,110 @@ fn parse_app_manifest(text: &str, appid: u32, steam: &SteamInstall) -> Option<St
         grid_image,
         last_played,
     })
+}
+
+/// Resolve the best locally cached cover art for `appid`, first hit wins.
+///
+/// The modern client (2023 UI) keeps library art in `<Steam>/appcache/
+/// librarycache/<AppID>/`: `header*.jpg` (460×215 landscape, matching the
+/// games grid card), `library_600x900*.jpg` (portrait box art), plus
+/// `library_header` / `library_hero` / `library_capsule` variants — often as
+/// locale-suffixed files (e.g. `header_schinese.jpg`) or inside content-hash
+/// subdirectories. Older clients and non-Steam shortcuts use
+/// `<Steam>/config/grid/<AppID>.png` and
+/// `<Steam>/steamapps/librarycache/<AppID>_*.jpg`.
+fn resolve_cover(steam: &SteamInstall, appid: u32) -> Option<PathBuf> {
+    let root = &steam.root;
+
+    // Legacy grid cache; still where non-Steam shortcut art lives.
+    let grid = root.join("config").join("grid").join(format!("{appid}.png"));
+    if grid.is_file() {
+        return Some(grid);
+    }
+
+    let cache_dir = root
+        .join("appcache")
+        .join("librarycache")
+        .join(appid.to_string());
+    if let Some(cover) = cover_from_cache_dir(&cache_dir) {
+        return Some(cover);
+    }
+
+    // Pre-2023 client layout: flat files under steamapps/librarycache.
+    let legacy = root.join("steamapps").join("librarycache");
+    for name in [
+        format!("{appid}_header.jpg"),
+        format!("{appid}_library_600x900.jpg"),
+    ] {
+        let path = legacy.join(name);
+        if path.is_file() {
+            return Some(path);
+        }
+    }
+    None
+}
+
+/// Search one `appcache/librarycache/<AppID>` directory — its own files plus
+/// one level of content-hash subdirectories — and return the best cover.
+/// Asset type decides first (landscape header, then portrait box art, then
+/// hero/capsule images), name length second so the exact international name
+/// beats locale variants; blurred heroes are a deliberate last resort.
+fn cover_from_cache_dir(dir: &Path) -> Option<PathBuf> {
+    /// Sort key of a cover file name: asset-type rank, then name length.
+    fn rank(name: &str) -> Option<(u8, usize)> {
+        let lower = name.to_lowercase();
+        if !(lower.ends_with(".jpg") || lower.ends_with(".png")) {
+            return None;
+        }
+        let rank = if lower.starts_with("header") {
+            0
+        } else if lower.starts_with("library_600x900") {
+            1
+        } else if lower.starts_with("library_header") {
+            2
+        } else if lower.starts_with("library_hero_blur") {
+            4
+        } else if lower.starts_with("library_hero") {
+            3
+        } else if lower.starts_with("library_capsule") {
+            5
+        } else {
+            return None;
+        };
+        Some((rank, lower.len()))
+    }
+
+    let mut best: Option<((u8, usize), PathBuf)> = None;
+    let consider = |path: PathBuf, best: &mut Option<((u8, usize), PathBuf)>| {
+        let Some(key) = path.file_name().and_then(|n| n.to_str()).and_then(rank) else {
+            return;
+        };
+        if best.as_ref().is_none_or(|(known, _)| key < *known) {
+            *best = Some((key, path));
+        }
+    };
+
+    let Ok(entries) = std::fs::read_dir(dir) else {
+        return None;
+    };
+    for entry in entries.flatten() {
+        let Ok(file_type) = entry.file_type() else {
+            continue;
+        };
+        let path = entry.path();
+        if file_type.is_file() {
+            consider(path, &mut best);
+        } else if file_type.is_dir()
+            && let Ok(inner) = std::fs::read_dir(&path)
+        {
+            for file in inner.flatten() {
+                if file.file_type().map(|t| t.is_file()).unwrap_or(false) {
+                    consider(file.path(), &mut best);
+                }
+            }
+        }
+    }
+    best.map(|(_, path)| path)
 }
 
 #[cfg(test)]
@@ -162,5 +265,102 @@ mod tests {
         let steam = SteamInstall { root: PathBuf::from("C:/Steam") };
         let broken = r#""AppState" { "appid" "1" "StateFlags" "4" }"#;
         assert!(parse_app_manifest(broken, 1, &steam).is_none());
+    }
+
+    /// Build a fake Steam root under the OS temp dir with the given files.
+    fn fake_steam(files: &[(&str, &str)]) -> PathBuf {
+        let root = std::env::temp_dir().join(format!(
+            "steam-switcher-test-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        for (rel, _) in files {
+            std::fs::create_dir_all(root.join(rel).parent().unwrap()).unwrap();
+        }
+        for (rel, content) in files {
+            std::fs::write(root.join(rel), content).unwrap();
+        }
+        root
+    }
+
+    #[test]
+    fn cover_prefers_header_over_locale_and_boxart() {
+        let appid = 730u32;
+        let root = fake_steam(&[
+            (
+                &format!("appcache/librarycache/{appid}/header_schinese.jpg"),
+                "junk",
+            ),
+            (
+                &format!("appcache/librarycache/{appid}/library_600x900_schinese.jpg"),
+                "junk",
+            ),
+        ]);
+        let cover = resolve_cover(&SteamInstall { root: root.clone() }, appid).unwrap();
+        assert_eq!(
+            cover,
+            root.join(format!("appcache/librarycache/{appid}/header_schinese.jpg"))
+        );
+        std::fs::remove_dir_all(root).ok();
+    }
+
+    #[test]
+    fn cover_falls_back_to_hashed_subdir_boxart() {
+        let appid = 578080u32;
+        let root = fake_steam(&[(
+            &format!("appcache/librarycache/{appid}/abc/library_600x900.jpg"),
+            "junk",
+        )]);
+        let cover = resolve_cover(&SteamInstall { root: root.clone() }, appid).unwrap();
+        assert_eq!(
+            cover,
+            root.join(format!("appcache/librarycache/{appid}/abc/library_600x900.jpg"))
+        );
+        std::fs::remove_dir_all(root).ok();
+    }
+
+    #[test]
+    fn cover_falls_back_to_legacy_cache_and_grid() {
+        let appid = 431960u32;
+        let root = fake_steam(&[(&format!("steamapps/librarycache/{appid}_header.jpg"), "junk")]);
+        let cover = resolve_cover(&SteamInstall { root: root.clone() }, appid).unwrap();
+        assert_eq!(
+            cover,
+            root.join(format!("steamapps/librarycache/{appid}_header.jpg"))
+        );
+        std::fs::remove_dir_all(root).ok();
+
+        let root = fake_steam(&[(&format!("config/grid/{appid}.png"), "junk")]);
+        let cover = resolve_cover(&SteamInstall { root: root.clone() }, appid).unwrap();
+        assert_eq!(cover, root.join(format!("config/grid/{appid}.png")));
+        std::fs::remove_dir_all(root).ok();
+    }
+
+    #[test]
+    fn cover_picks_subdir_header_over_top_level_blur() {
+        let appid = 1172470u32;
+        let root = fake_steam(&[
+            (&format!("appcache/librarycache/{appid}/library_hero_blur.jpg"), "junk"),
+            (
+                &format!("appcache/librarycache/{appid}/abc/library_header.jpg"),
+                "junk",
+            ),
+        ]);
+        let cover = resolve_cover(&SteamInstall { root: root.clone() }, appid).unwrap();
+        assert_eq!(
+            cover,
+            root.join(format!("appcache/librarycache/{appid}/abc/library_header.jpg"))
+        );
+        std::fs::remove_dir_all(root).ok();
+    }
+
+    #[test]
+    fn cover_none_when_missing() {
+        let root = fake_steam(&[]);
+        assert!(resolve_cover(&SteamInstall { root: root.clone() }, 1).is_none());
+        std::fs::remove_dir_all(root).ok();
     }
 }
