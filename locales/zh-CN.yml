@@ -9,6 +9,7 @@ sidebar.steam_status: Steam 进程
 sidebar.running: steam.exe(运行中)
 sidebar.stopped: steam.exe(未运行)
 sidebar.restart: 重启 Steam
+sidebar.current_account: "当前:%{name}"
 users.title: Steam 账户
 users.switch_here: 切换到此账号
 users.in_use: 使用中

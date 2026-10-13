@@ -147,6 +147,13 @@ fn is_under_steamapps_common(path: &Path) -> bool {
     false
 }
 
+/// True while the Steam client itself is running (any `steam.exe` process).
+/// One full process enumeration per call — callers should poll, not per-frame.
+pub fn steam_running() -> bool {
+    let mut sys = System::new();
+    !find_steam_pids(&mut sys).is_empty()
+}
+
 /// Every running PID that is the Steam client itself.
 fn find_steam_pids(sys: &mut System) -> Vec<Pid> {
     sys.refresh_processes(ProcessesToUpdate::All, true);
@@ -225,6 +232,28 @@ fn wait_until_gone(sys: &mut System, pids: &mut Vec<Pid>, timeout: Duration) -> 
         }
         std::thread::sleep(WAIT_TICK);
     }
+}
+
+/// Read the account name Steam silently auto-logs-in on startup (registry
+/// `HKCU\Software\Valve\Steam\AutoLoginUser`). Steam maintains this value on
+/// every in-client login, so it doubles as a "who is active" signal.
+/// `None` when the value is unset or on non-Windows platforms.
+#[cfg(windows)]
+pub fn autologin_user() -> Option<String> {
+    use winreg::enums::{HKEY_CURRENT_USER, KEY_QUERY_VALUE};
+    use winreg::RegKey;
+
+    let hkcu = RegKey::predef(HKEY_CURRENT_USER);
+    let key = hkcu
+        .open_subkey_with_flags("Software\\Valve\\Steam", KEY_QUERY_VALUE)
+        .ok()?;
+    key.get_value("AutoLoginUser").ok()
+}
+
+/// Non-Windows builds have no registry equivalent yet.
+#[cfg(not(windows))]
+pub fn autologin_user() -> Option<String> {
+    None
 }
 
 /// Write the registry keys that make Steam silently auto-login `account_name`

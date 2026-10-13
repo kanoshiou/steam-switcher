@@ -9,6 +9,7 @@ sidebar.steam_status: Steam 프로세스
 sidebar.running: steam.exe(실행 중)
 sidebar.stopped: steam.exe(꺼짐)
 sidebar.restart: Steam 재시작
+sidebar.current_account: "현재:%{name}"
 users.title: Steam 계정
 users.switch_here: 이 계정으로 전환
 users.in_use: 사용 중

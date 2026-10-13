@@ -9,6 +9,7 @@ sidebar.steam_status: Steam process
 sidebar.running: steam.exe (running)
 sidebar.stopped: steam.exe (not running)
 sidebar.restart: Restart Steam
+sidebar.current_account: "Current: %{name}"
 users.title: Steam accounts
 users.switch_here: Switch here
 users.in_use: In use

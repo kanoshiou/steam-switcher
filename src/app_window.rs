@@ -20,6 +20,7 @@ use std::path::Path;
 use crate::config::Config;
 use crate::steam::discover::SteamInstall;
 use crate::steam::library::{self, SteamGame};
+use crate::steam::switch;
 use crate::steam::users::{self, SteamUser};
 
 /// The three pages reachable from the sidebar.
@@ -50,6 +51,13 @@ pub struct AppWindow {
     /// Whether the Steam client starts with Windows. Also read off the render
     /// path: `autostart::is_enabled()` hits the registry every call.
     autostart_enabled: bool,
+    /// Whether the Steam client is currently running. Cached: the status
+    /// watcher (`app::status_watcher`) pushes changes, render only reads.
+    pub(crate) steam_running: bool,
+    /// SteamID64 of the account currently in use (registry `AutoLoginUser`
+    /// cross-checked against vdf `MostRecent`). Drives the live "in use"
+    /// badge; `None` when no account can be resolved.
+    pub(crate) active_steam_id64: Option<String>,
 }
 
 impl AppWindow {
@@ -66,6 +74,7 @@ impl AppWindow {
             cx.new(|cx| InputState::new(window, cx).placeholder(t!("games.search").to_string()));
         cx.subscribe(&search_input, Self::on_search_changed).detach();
         let users_sorted = users::sorted_by_recency(users.clone());
+        let active_steam_id64 = crate::app::resolve_active_steam_id64(&users);
         Self {
             steam,
             users,
@@ -79,6 +88,8 @@ impl AppWindow {
             search_query: String::new(),
             picked_game: None,
             autostart_enabled: crate::autostart::is_enabled(),
+            steam_running: switch::steam_running(),
+            active_steam_id64,
         }
     }
 
@@ -92,6 +103,8 @@ impl AppWindow {
         self.users_sorted = users::sorted_by_recency(self.users.clone());
         self.games = library::installed_games(&self.steam).unwrap_or_default();
         self.games_lower = self.games.iter().map(|game| game.name.to_lowercase()).collect();
+        self.steam_running = switch::steam_running();
+        self.active_steam_id64 = crate::app::resolve_active_steam_id64(&self.users);
     }
 
     fn on_search_changed(
@@ -182,24 +195,93 @@ impl AppWindow {
 
     fn sidebar_footer(&self, cx: &Context<Self>) -> gpui_kit::Div {
         let theme = cx.theme().clone();
-        div()
+
+        let restart = div()
+            .id("restart-steam")
             .flex()
-            .items_center()
-            .justify_between()
+            .cursor_pointer()
+            .paddings(px(4.0))
+            .rounded(px(6.0))
+            .hover(|style| style.bg(theme.secondary_hover))
+            .child(Icon::new(IconName::RefreshCw))
+            .on_click(|_event, _window, cx| crate::app::request_restart_steam(cx));
+
+        // Collapsed: no room for text, just the light and the restart button.
+        if self.sidebar_collapsed {
+            return div()
+                .flex()
+                .flex_col()
+                .items_center()
+                .gap(px(8.0))
+                .paddings(px(8.0))
+                .child(self.status_dot(&theme))
+                .child(restart);
+        }
+
+        let status_text = if self.steam_running {
+            t!("sidebar.running")
+        } else {
+            t!("sidebar.stopped")
+        };
+        let mut footer = div()
+            .flex()
+            .flex_col()
+            .gap(px(4.0))
             .paddings(px(8.0))
             .rounded(px(8.0))
             .bg(theme.secondary)
+            .overflow_hidden()
             .child(
                 div()
-                    .id("restart-steam")
                     .flex()
-                    .cursor_pointer()
-                    .paddings(px(4.0))
-                    .rounded(px(6.0))
-                    .hover(|style| style.bg(theme.secondary_hover))
-                    .child(Icon::new(IconName::RefreshCw))
-                    .on_click(|_event, _window, cx| crate::app::request_restart_steam(cx)),
-            )
+                    .items_center()
+                    .justify_between()
+                    .child(
+                        div()
+                            .flex()
+                            .items_center()
+                            .gap(px(6.0))
+                            .child(self.status_dot(&theme))
+                            .child(
+                                Label::new(status_text.to_string())
+                                    .text_size(px(11.0))
+                                    .text_color(theme.muted_foreground),
+                            ),
+                    )
+                    .child(restart),
+            );
+
+        // Current account line, hidden when nothing can be resolved.
+        if let Some(display) = self.active_display() {
+            footer = footer.child(
+                div()
+                    .w_full()
+                    .overflow_hidden()
+                    .child(
+                        Label::new(t!("sidebar.current_account", name = display).to_string())
+                            .text_size(px(11.0))
+                            .text_color(theme.muted_foreground),
+                    ),
+            );
+        }
+        footer
+    }
+
+    /// The green/red Steam process light shown in the sidebar footer.
+    fn status_dot(&self, theme: &Theme) -> gpui_kit::Div {
+        let color = if self.steam_running {
+            theme.success
+        } else {
+            theme.muted_foreground
+        };
+        div().size(px(8.0)).rounded_full().bg(color)
+    }
+
+    /// Display name of the account currently in use, if one is resolved.
+    fn active_display(&self) -> Option<String> {
+        let id = self.active_steam_id64.as_deref()?;
+        let user = self.users.iter().find(|u| u.steam_id64 == id)?;
+        Some(self.config.display_for(user))
     }
 
     // --------------------------------------------------------------- pages
@@ -232,7 +314,9 @@ impl AppWindow {
         let mut cards = div().flex().flex_col().gap(px(10.0)).w_full();
         // Pre-sorted at load time so render does not clone/sort every frame.
         for user in &self.users_sorted {
-            let active = user.most_recent;
+            // Live "in use" verdict from the status watcher (registry +
+            // vdf consensus), not the load-time `most_recent` snapshot.
+            let active = self.active_steam_id64.as_deref() == Some(user.steam_id64.as_str());
             let display = self.config.display_for(user);
             let steam_id64 = user.steam_id64.clone();
 

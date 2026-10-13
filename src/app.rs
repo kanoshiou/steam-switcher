@@ -6,7 +6,9 @@
 //! events arrive on foreign global channels; a single foreground task polls
 //! them and awaits a short timer between polls (never blocks the pump). The
 //! blocking switch flow itself runs on the background executor and reports
-//! back through `AsyncApp::update`.
+//! back through `AsyncApp::update`. A separate background task watches
+//! Steam's process/account state and pushes changes into the window view
+//! (edge-triggered, so a quiet poll never re-renders).
 
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
@@ -35,6 +37,9 @@ const EVENT_POLL: Duration = Duration::from_millis(30);
 /// Delay before firing the steam:// URL after a switch (Steam must boot; the
 /// protocol queues internally — docs/research-game-list.md).
 const LAUNCH_DELAY: Duration = Duration::from_secs(3);
+/// Poll interval for the Steam process/account status watcher. A full
+/// enumeration costs a few ms; 2s keeps the UI current without measurable load.
+const STATUS_POLL: Duration = Duration::from_secs(2);
 
 /// Main-thread application state. gpui globals are only touched from the main
 /// thread, which is exactly what the tray icon requires (it is not `Send`).
@@ -157,6 +162,13 @@ fn run_gpui(steam: SteamInstall) {
         // async waits between polls, so the win32 pump stays responsive.
         cx.spawn(async move |cx| event_loop(cx).await).detach();
 
+        // Steam status watcher: feeds the sidebar footer light and the live
+        // "in use" badge (see status_watcher for the edge-trigger contract).
+        let state = cx.global::<AppState>();
+        let (watch_steam, switching) = (state.steam.clone(), state.switching.clone());
+        cx.spawn(async move |cx| status_watcher(watch_steam, switching, cx).await)
+            .detach();
+
         tracing::info!("gui ready");
     });
 }
@@ -268,6 +280,57 @@ async fn event_loop(cx: &mut AsyncApp) {
         }
 
         cx.background_executor().timer(EVENT_POLL).await;
+    }
+}
+
+/// Resolve the account currently in use. The registry `AutoLoginUser` is the
+/// stronger signal (Steam rewrites it on every in-client login); the vdf
+/// `MostRecent` flag is the fallback when the registry value is unset or
+/// points at an account no longer present in `loginusers.vdf`.
+pub fn resolve_active_steam_id64(users: &[SteamUser]) -> Option<String> {
+    if let Some(name) = switch::autologin_user()
+        && let Some(user) = users.iter().find(|u| u.account_name == name)
+    {
+        return Some(user.steam_id64.clone());
+    }
+    users::active_user(users).map(|u| u.steam_id64.clone())
+}
+
+/// Watch Steam's process and account state on the background executor and
+/// push changes into the window view. Edge-triggered: the poll only touches
+/// the UI when the running flag or the active account actually changed, so a
+/// quiet poll never re-renders. While a switch is in flight Steam is
+/// deliberately bounced; pushes are skipped and the switch's own end-of-flow
+/// refresh leaves the view correct.
+async fn status_watcher(steam: SteamInstall, switching: Arc<AtomicBool>, cx: &mut AsyncApp) {
+    let mut last: Option<(bool, Option<String>)> = None;
+    loop {
+        // Per-iteration clone: the spawned block needs ownership for 'static.
+        let steam = steam.clone();
+        let snapshot = cx
+            .background_executor()
+            .spawn(async move {
+                let running = switch::steam_running();
+                let active = users::load_users(&steam)
+                    .ok()
+                    .and_then(|users| resolve_active_steam_id64(&users));
+                (running, active)
+            })
+            .await;
+
+        if !switching.load(Ordering::SeqCst) && last.as_ref() != Some(&snapshot) {
+            last = Some(snapshot.clone());
+            let (running, active) = snapshot;
+            cx.update(|cx| {
+                with_window_view(cx, |view, cx| {
+                    view.steam_running = running;
+                    view.active_steam_id64 = active;
+                    cx.notify();
+                });
+            });
+        }
+
+        cx.background_executor().timer(STATUS_POLL).await;
     }
 }
 

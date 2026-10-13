@@ -9,6 +9,7 @@ sidebar.steam_status: Steam プロセス
 sidebar.running: steam.exe(実行中)
 sidebar.stopped: steam.exe(停止中)
 sidebar.restart: Steam を再起動
+sidebar.current_account: "現在:%{name}"
 users.title: Steam アカウント
 users.switch_here: このアカウントへ切替
 users.in_use: 使用中
