@@ -78,7 +78,7 @@ pub fn run() -> anyhow::Result<()> {
             match tray::parse_action(&event.id) {
                 Some(Action::Switch(steam_id64)) => {
                     if switching.swap(true, Ordering::SeqCst) {
-                        notify::show(&t!("app.title"), &t!("toast.busy"));
+                        notify::show(&t!("toast.busy"));
                         continue;
                     }
                     spawn_switch(
@@ -91,20 +91,14 @@ pub fn run() -> anyhow::Result<()> {
                 Some(Action::Refresh) => refresh(&tray, &steam),
                 Some(Action::ToggleAutostart) => {
                     match autostart::toggle() {
-                        Ok(enabled) => notify::show(
-                            &t!("app.title"),
-                            &if enabled {
-                                t!("toast.autostart_on")
-                            } else {
-                                t!("toast.autostart_off")
-                            },
-                        ),
+                        Ok(enabled) => notify::show(&if enabled {
+                            t!("toast.autostart_on")
+                        } else {
+                            t!("toast.autostart_off")
+                        }),
                         Err(err) => {
                             tracing::error!(%err, "failed to toggle autostart");
-                            notify::show(
-                                &t!("app.title"),
-                                &t!("toast.autostart_failed", error = err.to_string()),
-                            );
+                            notify::show(&t!("toast.autostart_failed", error = err.to_string()));
                         }
                     }
                     refresh(&tray, &steam);
@@ -170,10 +164,7 @@ fn spawn_switch(
         let outcome = perform_switch(&steam, &steam_id64, false, &stage_slot);
         if let Err(err) = outcome {
             tracing::error!(%err, "switch failed");
-            notify::show(
-                &t!("app.title"),
-                &t!("toast.switch_failed", error = err.to_string()),
-            );
+            notify::show(&t!("toast.switch_failed", error = err.to_string()));
         }
         let _ = done_tx.send(());
     });

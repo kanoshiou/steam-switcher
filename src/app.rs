@@ -155,6 +155,7 @@ fn run_gpui(steam: SteamInstall) {
         // Apply persisted locale + theme before anything renders.
         let config = Config::load();
         rust_i18n::set_locale(config.language());
+        notify::register_app_id();
         crate::theme::apply(config.theme(), cx);
 
         let users = load_users_lenient(&steam);
@@ -240,28 +241,27 @@ async fn event_loop(cx: &mut AsyncApp) {
                     });
                 }
                 Some(Action::ToggleAutostart) => {
+                    let toggled = cx.update(|_| autostart::toggle());
+                    // Keep the window's settings switch in step.
                     cx.update(|cx| {
-                        match autostart::toggle() {
-                            Ok(enabled) => notify::show(
-                                &t!("app.title"),
-                                &if enabled {
-                                    t!("toast.autostart_on")
-                                } else {
-                                    t!("toast.autostart_off")
-                                },
-                            ),
-                            Err(err) => {
-                                tracing::error!(%err, "failed to toggle autostart");
-                                notify::show(
-                                    &t!("app.title"),
-                                    &t!("toast.autostart_failed", error = err.to_string()),
-                                );
-                            }
-                        }
-                        // Keep the window's settings switch in step.
                         refresh_window(cx);
                         cx.global_mut::<AppState>().refresh_tray();
                     });
+                    // Toasts must not be sent from inside a `cx.update` — the
+                    // WinRT call pumps messages, and re-entrant frame requests
+                    // hit gpui's App borrow (logged as "RefCell already
+                    // borrowed") while the update closure is on the stack.
+                    match toggled {
+                        Ok(enabled) => notify::show(&if enabled {
+                            t!("toast.autostart_on")
+                        } else {
+                            t!("toast.autostart_off")
+                        }),
+                        Err(err) => {
+                            tracing::error!(%err, "failed to toggle autostart");
+                            notify::show(&t!("toast.autostart_failed", error = err.to_string()));
+                        }
+                    }
                 }
                 Some(Action::Settings) => {
                     cx.update(|cx| {
@@ -331,7 +331,7 @@ async fn event_loop(cx: &mut AsyncApp) {
         for steam_id64 in switch_requests {
             let switching = cx.update(|cx| cx.global::<AppState>().switching.clone());
             if switching.swap(true, Ordering::SeqCst) {
-                notify::show(&t!("app.title"), &t!("toast.busy"));
+                notify::show(&t!("toast.busy"));
                 continue;
             }
             cx.update(|cx| begin_switch(cx, &steam_id64));
@@ -430,27 +430,31 @@ async fn do_switch(cx: &mut AsyncApp, steam_id64: &str, switching: &AtomicBool) 
         });
         cx.global_mut::<AppState>().refresh_tray();
         refresh_window(cx);
+        // Quiet mode reports through in-app toasts (they need the window and
+        // don't leave this thread); non-quiet native toasts go out below,
+        // after this update — see the comment in the ToggleAutostart handler.
+        match &outcome {
+            Err(err) if quiet => toast(cx, Notification::error(t!("toast.switch_failed", error = err.to_string()).to_string())),
+            Ok(SwitchOutcome::CancelledByUser) if quiet => {
+                toast(cx, Notification::warning(t!("toast.cancelled").to_string()));
+            }
+            _ => {}
+        }
+    });
+    if !quiet {
         match &outcome {
             Err(err) => {
                 tracing::error!(%err, "switch failed");
-                if quiet {
-                    toast(cx, Notification::error(t!("toast.switch_failed", error = err.to_string()).to_string()));
-                } else {
-                    notify::show(&t!("app.title"), &t!("toast.switch_failed", error = err.to_string()));
-                }
+                notify::show(&t!("toast.switch_failed", error = err.to_string()));
             }
             Ok(SwitchOutcome::CancelledByUser) => {
-                if quiet {
-                    toast(cx, Notification::warning(t!("toast.cancelled").to_string()));
-                } else {
-                    notify::show(&t!("app.title"), &t!("toast.cancelled"));
-                }
+                notify::show(&t!("toast.cancelled"));
             }
             // Switched / AlreadyActive were already announced by the native
-            // toasts inside perform_switch on the non-quiet path.
+            // toasts inside perform_switch.
             Ok(_) => {}
         }
-    });
+    }
     switching.store(false, Ordering::SeqCst);
 }
 

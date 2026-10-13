@@ -20,7 +20,7 @@ pub fn load_users_lenient(steam: &SteamInstall) -> Vec<SteamUser> {
         Ok(users) => users,
         Err(err) => {
             tracing::error!(%err, "failed to load loginusers.vdf");
-            notify::show(&t!("app.title"), &t!("toast.read_failed", error = err.to_string()));
+            notify::show(&t!("toast.read_failed", error = err.to_string()));
             Vec::new()
         }
     }
@@ -55,13 +55,13 @@ pub fn perform_switch(
     let users = users::load_users(steam)?;
     let Some(target) = users.iter().find(|u| u.steam_id64 == steam_id64) else {
         // Menu or list was stale; the caller refreshes the UI after.
-        notify::show(&t!("app.title"), &t!("toast.stale_account"));
+        notify::show(&t!("toast.stale_account"));
         return Ok(SwitchOutcome::CancelledByUser);
     };
     let label = target.display_name().to_string();
 
     if !quiet {
-        notify::show(&t!("app.title"), &t!("toast.switching", name = label.clone()));
+        notify::show(&t!("toast.switching", name = label.clone()));
     }
 
     // Games running: kill them silently when configured, else ask (the
@@ -84,13 +84,13 @@ pub fn perform_switch(
     match switch::switch_to_account(steam, steam_id64, &confirm, &progress, &launch_args) {
         Ok(SwitchOutcome::Switched) => {
             if !quiet {
-                notify::show(&t!("app.title"), &t!("toast.switched", name = label));
+                notify::show(&t!("toast.switched", name = label));
             }
             Ok(SwitchOutcome::Switched)
         }
         Ok(SwitchOutcome::AlreadyActive) => {
             if !quiet {
-                notify::show(&t!("app.title"), &t!("toast.already_active", name = label));
+                notify::show(&t!("toast.already_active", name = label));
             }
             Ok(SwitchOutcome::AlreadyActive)
         }
