@@ -20,12 +20,24 @@ pub struct Config {
     /// dialog itself must not be skippable when enabled).
     #[serde(default = "default_true")]
     pub confirm_before_switch: bool,
-    /// UI language: `en`, `zh-CN`, `ja`, `ko`. `None` follows the system locale.
+    /// UI language: `en`, `zh-CN`, `zh-TW`, `ja`, `ko`. `None` follows the system locale.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub language: Option<String>,
     /// UI theme: `system`, `dark` or `light`. `None` follows the system.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub theme: Option<String>,
+    /// Extra arguments passed to `steam.exe` on (re)launch. `None` (the
+    /// default) launches with no arguments; users may add e.g. `-silent` for
+    /// a fast, popup-free switch.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub launch_args: Option<String>,
+    /// Close button minimizes to tray instead of quitting (default on).
+    #[serde(default = "default_true")]
+    pub minimize_to_tray: bool,
+    /// Quit running Steam games without asking before a switch (off by
+    /// default: the confirmation dialog is the safe path).
+    #[serde(default)]
+    pub kill_games_before_switch: bool,
 }
 
 fn default_true() -> bool {
@@ -70,15 +82,28 @@ impl Config {
     }
 
     /// The UI language to use: configured value, else the system locale mapped
-    /// to one of the supported languages (`en`, `zh-CN`, `ja`, `ko`).
+    /// to one of the supported languages (`en`, `zh-CN`, `zh-TW`, `ja`, `ko`).
     pub fn language(&self) -> &'static str {
         match self.language.as_deref() {
             Some("zh-CN") => "zh-CN",
+            Some("zh-TW") => "zh-TW",
             Some("ja") => "ja",
             Some("ko") => "ko",
             Some("en") => "en",
             _ => detect_language(),
         }
+    }
+
+    /// Arguments for launching `steam.exe`: the configured string split on
+    /// whitespace. Unset or empty both mean "no arguments" — `-silent` etc.
+    /// are opt-in from the settings page.
+    pub fn launch_args_tokens(&self) -> Vec<String> {
+        self.launch_args
+            .as_deref()
+            .unwrap_or_default()
+            .split_whitespace()
+            .map(String::from)
+            .collect()
     }
 
     /// The UI theme to use: configured value, else `system`.

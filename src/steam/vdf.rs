@@ -135,6 +135,15 @@ pub fn set_active(users: &mut [SteamUser], steam_id64: &str) -> bool {
     true
 }
 
+/// Remove the account block for `steam_id64` from the in-memory list.
+///
+/// Returns `false` — leaving the list untouched — if no user with that id exists.
+pub fn remove_user(users: &mut Vec<SteamUser>, steam_id64: &str) -> bool {
+    let len_before = users.len();
+    users.retain(|user| user.steam_id64 != steam_id64);
+    users.len() != len_before
+}
+
 /// Back up `path` (keeping the latest [`MAX_BACKUPS`]) and write `text` to it.
 pub fn write_users(path: &Path, users: &[SteamUser]) -> Result<(), VdfError> {
     backup_existing(path)?;
@@ -258,6 +267,16 @@ mod tests {
         let parsed = parse_users(&text).unwrap();
         assert_eq!(parsed.len(), 1);
         assert_eq!(parsed[0], user);
+    }
+
+    #[test]
+    fn remove_user_drops_only_target() {
+        let mut users = fixture_users();
+        assert!(remove_user(&mut users, "76561198000000001"));
+        assert_eq!(users.len(), 1);
+        assert_eq!(users[0].steam_id64, "76561198000000002");
+        assert!(!remove_user(&mut users, "76561198000000001"));
+        assert_eq!(users.len(), 1);
     }
 
     #[test]

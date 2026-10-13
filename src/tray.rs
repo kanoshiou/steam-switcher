@@ -1,13 +1,14 @@
 //! Tray icon and the dynamically built context menu.
 //!
-//! Menu layout (docs/plan.md P1): account list (check mark on the active one),
-//! separator, Refresh, Start-with-Windows toggle, Settings placeholder, Quit.
+//! Menu layout: account list (check mark on the active one), separator,
+//! Refresh, a "Settings" submenu (language, switch behavior and tray
+//! preferences — mirroring the window's settings page), separator, Quit.
 //!
-//! Menu item ids are structured strings (`acct:<steam_id64>`, `refresh`, ...)
-//! so [`parse_action`] can turn a [`MenuId`] back into an [`Action`] without a
-//! side table — the id *is* the mapping.
+//! Menu item ids are structured strings (`acct:<steam_id64>`, `lang:zh-CN`,
+//! `refresh`, ...) so [`parse_action`] can turn a [`MenuId`] back into an
+//! [`Action`] without a side table — the id *is* the mapping.
 
-use tray_icon::menu::{CheckMenuItem, Menu, MenuId, MenuItem, PredefinedMenuItem};
+use tray_icon::menu::{CheckMenuItem, Menu, MenuId, MenuItem, PredefinedMenuItem, Submenu};
 use tray_icon::{Icon, TrayIcon, TrayIconBuilder};
 
 use crate::config::Config;
@@ -15,6 +16,18 @@ use crate::steam::users::{self, SteamUser};
 
 /// Prefix for per-account menu item ids.
 pub const ACCOUNT_PREFIX: &str = "acct:";
+/// Prefix for language menu item ids.
+pub const LANGUAGE_PREFIX: &str = "lang:";
+
+/// The UI languages offered in the tray, as `(code, native label)` — the same
+/// list the settings page shows.
+pub const LANGUAGES: &[(&str, &str)] = &[
+    ("zh-CN", "简体中文"),
+    ("zh-TW", "繁體中文"),
+    ("en", "English"),
+    ("ja", "日本語"),
+    ("ko", "한국어"),
+];
 
 /// What the user picked from the tray menu.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -25,8 +38,18 @@ pub enum Action {
     Refresh,
     /// Toggle the "start with Windows" Run-key entry.
     ToggleAutostart,
-    /// Settings window placeholder (Phase 2).
+    /// Switch the UI language.
+    SetLanguage(String),
+    /// Toggle "close running games without asking before a switch".
+    ToggleKillGames,
+    /// Toggle the pre-switch confirmation for running games.
+    ToggleConfirmSwitch,
+    /// Toggle "close button minimizes to tray instead of quitting".
+    ToggleMinimizeToTray,
+    /// Open the settings window.
     Settings,
+    /// Show/restore the main window.
+    OpenWindow,
     /// Exit the app.
     Quit,
 }
@@ -68,10 +91,17 @@ pub fn parse_action(id: &MenuId) -> Option<Action> {
     if let Some(steam_id64) = raw.strip_prefix(ACCOUNT_PREFIX) {
         return Some(Action::Switch(steam_id64.to_string()));
     }
+    if let Some(lang) = raw.strip_prefix(LANGUAGE_PREFIX) {
+        return Some(Action::SetLanguage(lang.to_string()));
+    }
     match raw {
         "refresh" => Some(Action::Refresh),
         "autostart" => Some(Action::ToggleAutostart),
+        "kill-games" => Some(Action::ToggleKillGames),
+        "confirm-switch" => Some(Action::ToggleConfirmSwitch),
+        "minimize-tray" => Some(Action::ToggleMinimizeToTray),
         "settings" => Some(Action::Settings),
+        "open" => Some(Action::OpenWindow),
         "quit" => Some(Action::Quit),
         _ => None,
     }
@@ -115,23 +145,66 @@ fn build_menu(users: &[SteamUser], autostart_enabled: bool, config: &Config) -> 
         true,
         None,
     ));
-    let _ = menu.append(&CheckMenuItem::with_id(
+    let _ = menu.append(&build_settings_submenu(autostart_enabled, config));
+    let _ = menu.append(&PredefinedMenuItem::separator());
+    let _ = menu.append(&MenuItem::with_id(
+        "open",
+        rust_i18n::t!("tray.open"),
+        true,
+        None,
+    ));
+    let _ = menu.append(&MenuItem::with_id("quit", rust_i18n::t!("tray.quit"), true, None));
+    menu
+}
+
+/// The "Settings" submenu: language picker plus the same behavior toggles the
+/// window's settings page offers (identical logic on both sides).
+fn build_settings_submenu(autostart_enabled: bool, config: &Config) -> Submenu {
+    let submenu = Submenu::with_id("settings", rust_i18n::t!("tray.settings"), true);
+
+    let lang = Submenu::with_id("settings-language", rust_i18n::t!("tray.language"), true);
+    let current = config.language();
+    for (code, label) in LANGUAGES {
+        let _ = lang.append(&CheckMenuItem::with_id(
+            format!("{LANGUAGE_PREFIX}{code}"),
+            *label,
+            true,
+            current == *code,
+            None,
+        ));
+    }
+    let _ = submenu.append(&lang);
+    let _ = submenu.append(&PredefinedMenuItem::separator());
+
+    let _ = submenu.append(&CheckMenuItem::with_id(
+        "kill-games",
+        rust_i18n::t!("settings.killgame_title"),
+        true,
+        config.kill_games_before_switch,
+        None,
+    ));
+    let _ = submenu.append(&CheckMenuItem::with_id(
+        "confirm-switch",
+        rust_i18n::t!("settings.confirm_switch"),
+        true,
+        config.confirm_before_switch,
+        None,
+    ));
+    let _ = submenu.append(&CheckMenuItem::with_id(
+        "minimize-tray",
+        rust_i18n::t!("settings.tray_title"),
+        true,
+        config.minimize_to_tray,
+        None,
+    ));
+    let _ = submenu.append(&CheckMenuItem::with_id(
         "autostart",
         rust_i18n::t!("tray.autostart"),
         true,
         autostart_enabled,
         None,
     ));
-    let _ = menu.append(&PredefinedMenuItem::separator());
-    let _ = menu.append(&MenuItem::with_id(
-        "settings",
-        rust_i18n::t!("tray.settings"),
-        true,
-        None,
-    ));
-    let _ = menu.append(&PredefinedMenuItem::separator());
-    let _ = menu.append(&MenuItem::with_id("quit", rust_i18n::t!("tray.quit"), true, None));
-    menu
+    submenu
 }
 
 /// Draw the app icon as straight-alpha RGBA8 at `size`: a Steam-navy disc with

@@ -71,6 +71,27 @@ pub fn active_user(users: &[SteamUser]) -> Option<&SteamUser> {
     users.iter().find(|u| u.most_recent)
 }
 
+/// Remove an account from `loginusers.vdf` on disk (with the usual backup).
+///
+/// Returns the removed user, or `None` when the account is the only one left
+/// (refused: the switcher needs at least one switchable account) or when no
+/// account with that id exists.
+pub fn remove_account(steam: &SteamInstall, steam_id64: &str) -> Result<Option<SteamUser>, VdfError> {
+    let path = loginusers_path(steam);
+    let text = std::fs::read_to_string(&path)?;
+    let mut users = vdf::parse_users(&text)?;
+    if users.len() <= 1 {
+        return Ok(None);
+    }
+    let removed = users.iter().find(|u| u.steam_id64 == steam_id64).cloned();
+    if removed.is_none() {
+        return Ok(None);
+    }
+    vdf::remove_user(&mut users, steam_id64);
+    vdf::write_users(&path, &users)?;
+    Ok(removed)
+}
+
 /// Accounts ordered the way Steam shows them: most recently used first.
 pub fn sorted_by_recency(mut users: Vec<SteamUser>) -> Vec<SteamUser> {
     users.sort_by(|a, b| b.timestamp.cmp(&a.timestamp).then(a.steam_id64.cmp(&b.steam_id64)));

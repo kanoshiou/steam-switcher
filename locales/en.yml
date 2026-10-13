@@ -1,66 +1,114 @@
 _version: 1
 app.title: Steam Switcher
+header.active: "Active:"
 nav.users: Accounts
-nav.games: My Games
+nav.games: Games
 nav.settings: Settings
 nav.collapse: Collapse sidebar
 nav.expand: Expand sidebar
-sidebar.steam_status: Steam process
-sidebar.running: steam.exe (running)
-sidebar.stopped: steam.exe (not running)
+sidebar.steam_process: Steam Process
+sidebar.running: Running
+sidebar.stopped: Stopped
 sidebar.restart: Restart Steam
+sidebar.running_tooltip: Steam is running (click to restart)
+sidebar.stopped_tooltip: Steam is stopped (click to start)
 sidebar.current_account: "Current: %{name}"
-users.title: Steam accounts
-users.switch_here: Switch here
+users.title: Account Management
+users.subtitle: One click hot-switches the local login and restarts Steam with that account.
+users.steamid: SteamID
+users.active_badge: ACTIVE
+users.switch_btn: Switch
+users.switch_here: Switch to this account
 users.in_use: In use
 users.empty: No Steam accounts found
-users.empty_hint: Log in once with "remember password" and hit Refresh.
-games.title: Installed games
-games.search: Search installed games…
+users.empty_hint: Log in once with "remember password" enabled, then refresh.
+users.delete_tooltip: Remove account
+users.delete_title: Remove this account?
+users.delete_sub: Only the local login entry is removed — cloud data and game ownership are untouched.
+users.delete_ok: Delete
+users.deleted: Account removed locally
+users.last_account: At least one Steam account must remain
+users.delete_failed: "Failed to remove: %{error}"
+games.title: Installed Games
+games.search: Search games…
+games.count: "%{count} games installed"
+games.launch: Launch
 games.empty: No games found
-games.empty_hint: Install a game in Steam, then refresh.
+games.empty_hint: Install games in Steam first, then refresh.
+games.hint: "Left click: launch now with the current account; right click: pick an account first"
 games.pick_title: Launch with which account?
-games.pick_hint: Steam will restart signed into the chosen account, then launch the game.
+games.pick_hint: Steam restarts with the chosen account, then the game starts.
 games.cancel: Cancel
+
+overlay.title: Hot-switching Steam account…
+overlay.target_title: "[%{name}] - hot-switching…"
+overlay.prepare: Preparing the switch and writing the login config…
+overlay.closing: Waiting for the Steam client to exit…
+overlay.writing: Writing loginusers.vdf and the registry…
+overlay.launching: Restarting Steam…
+overlay.game: Launching the game…
 settings.title: Settings
-settings.language: Language
-settings.theme: Theme
+settings.subtitle: Customize appearance, behavior and Steam launch paths.
+settings.appearance: Appearance & Display
+settings.theme_title: Theme Mode
+settings.theme_desc: Switch between the immersive Steam dark theme and a bright light theme
 settings.theme_system: System
 settings.theme_dark: Dark
 settings.theme_light: Light
-settings.general: General
-settings.autostart: Start with Windows
-settings.confirm_switch: Ask before switching while Steam games are running
+settings.lang_title: Display Language
+settings.lang_desc: Global language for the switcher UI
+settings.behavior: Behavior & Tray
+settings.autostart: Launch on system startup
+settings.autostart_desc: Silently sit in the system tray when Windows boots
+settings.tray_title: Minimize to tray on close
+settings.tray_desc: Keep running in the background for instant access
+settings.killgame_title: Close running games before switching
+settings.killgame_desc: Prevents file locks from blocking the Steam account switch
+settings.confirm_switch: Confirm before closing running games
+settings.confirm_desc: Ask first — never lose unsaved progress unexpectedly
+settings.paths: Paths & Launch Arguments
+settings.steam_path: Steam executable path
+settings.detect: Auto Detect
+settings.args_label: Additional launch arguments
+settings.args_hint: No arguments by default; add -silent for a fast, popup-free switch
+settings.args_placeholder: e.g. -silent -no-browser
+btn.cancel: Cancel
+tray.language: Language
 tray.refresh: Refresh
 tray.settings: Settings…
+tray.open: Open Window
 tray.quit: Quit
-tray.autostart: Start with Windows
+tray.autostart: Launch on startup
 tray.no_accounts: No Steam accounts found
 toast.refreshed: Account list refreshed.
 toast.autostart_on: steam-switcher will start with Windows.
 toast.autostart_off: steam-switcher will no longer start with Windows.
-toast.autostart_failed: "Failed to toggle autostart: %{error}"
-toast.busy: A switch is already in progress — hold on.
+toast.autostart_failed: "Failed to set autostart: %{error}"
+toast.busy: A switch is already in progress, please wait.
 toast.already_active: "Already using %{name}."
 toast.switching: "Switching to %{name}… (Steam will restart)"
 toast.switched: "Switched to %{name}."
 toast.switch_failed: "Switch failed: %{error}"
-toast.stale_account: That account is no longer in loginusers.vdf — list refreshed.
-toast.read_failed: "Could not read Steam accounts: %{error}"
-toast.single_account: Only one Steam account is remembered — nothing to cycle.
+toast.cancelled: Switch cancelled.
+toast.stale_account: That account is gone from loginusers.vdf; the list was refreshed.
+toast.read_failed: "Failed to read Steam accounts: %{error}"
+toast.single_account: Only one Steam account is remembered; nothing to cycle to.
 toast.restarting_steam: Restarting Steam…
 toast.restarted_steam: Steam restarted.
+toast.game_launch_failed: "Failed to launch game: %{error}"
+toast.path_detected: Steam install path retrieved from the Windows registry.
+toast.detect_failed: "Auto detect failed: %{error}"
 msg.games_running: |-
-  These Steam games are running:
+  The following Steam games are running:
 
   %{games}
 
   Quitting Steam now may lose unsaved progress (cloud saves upload on exit).
 
-  Quit Steam and switch anyway?
+  Quit and switch anyway?
 msg.games_running_title: Steam games are running
 msg.already_running: steam-switcher is already running in the system tray.
 msg.steam_not_found: |-
-  Could not locate the Steam installation.
+  Could not locate the Steam installation directory.
 
   %{error}

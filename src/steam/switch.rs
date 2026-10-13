@@ -24,10 +24,6 @@ const FORCE_KILL_WAIT: Duration = Duration::from_secs(3);
 /// Poll interval while waiting for Steam to exit.
 const WAIT_TICK: Duration = Duration::from_millis(250);
 
-/// Launch arguments passed to `steam.exe` on relaunch (see AGENTS.md D3 —
-/// whether `-silent` is required is still pending real-machine verification).
-const STEAM_LAUNCH_ARGS: &[&str] = &["-silent"];
-
 /// Errors that can abort a switch.
 #[derive(Debug, Error)]
 pub enum SwitchError {
@@ -56,15 +52,54 @@ pub enum SwitchOutcome {
     CancelledByUser,
 }
 
+/// Progress milestones of a switch, reported to the UI overlay.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[repr(u8)]
+pub enum SwitchStage {
+    /// Resolving the target and closing Steam.
+    Prepare = 1,
+    /// Waiting for the Steam client to exit.
+    ClosingSteam = 2,
+    /// Patching `loginusers.vdf` + registry.
+    WritingConfig = 3,
+    /// Starting Steam again.
+    LaunchingSteam = 4,
+    /// Starting the requested game (switch-then-launch only).
+    LaunchingGame = 5,
+}
+
+impl SwitchStage {
+    /// The stage as the small number the UI-side atomic stores (0 = idle).
+    pub fn as_u8(self) -> u8 {
+        self as u8
+    }
+
+    /// Decode a value previously stored by [`Self::as_u8`].
+    pub fn from_u8(value: u8) -> Option<Self> {
+        match value {
+            1 => Some(Self::Prepare),
+            2 => Some(Self::ClosingSteam),
+            3 => Some(Self::WritingConfig),
+            4 => Some(Self::LaunchingSteam),
+            5 => Some(Self::LaunchingGame),
+            _ => None,
+        }
+    }
+}
+
 /// Switch the machine to the account identified by `steam_id64`.
 ///
 /// `confirm_games` is called with the list of running Steam games whenever any
 /// are detected; returning `false` aborts the switch. The dialog must not be
 /// skippable (engineering conventions) — the caller owns its implementation.
+/// `progress` receives each stage transition; `launch_args` are passed to the
+/// relaunched `steam.exe`.
 pub fn switch_to_account(
     steam: &SteamInstall,
     steam_id64: &str,
     confirm_games: &dyn Fn(&[String]) -> bool,
+    progress: &dyn Fn(SwitchStage),
+    launch_args: &[String],
 ) -> Result<SwitchOutcome, SwitchError> {
     // Re-read from disk so we never patch a stale account list.
     let mut users = users::load_users(steam)?;
@@ -79,6 +114,7 @@ pub fn switch_to_account(
     }
     let target_label = target.display_name().to_string();
     let target_account = target.account_name.clone();
+    progress(SwitchStage::Prepare);
 
     let games = running_steam_games();
     if !games.is_empty() {
@@ -90,23 +126,27 @@ pub fn switch_to_account(
     }
 
     tracing::info!(%target_label, "closing Steam before switching");
+    progress(SwitchStage::ClosingSteam);
     close_steam(steam)?;
 
+    progress(SwitchStage::WritingConfig);
     if !vdf::set_active(&mut users, steam_id64) {
         return Err(SwitchError::UnknownAccount(steam_id64.to_string()));
     }
     vdf::write_users(&steam.loginusers_vdf(), &users)?;
     write_autologin_registry(&target_account)?;
-    launch_steam(steam)?;
+
+    progress(SwitchStage::LaunchingSteam);
+    launch_steam(steam, launch_args)?;
 
     tracing::info!(%target_label, "switch complete, Steam relaunched");
     Ok(SwitchOutcome::Switched)
 }
 
 /// Quit Steam gracefully and start it again (sidebar footer button).
-pub fn restart_steam(steam: &SteamInstall) -> Result<(), SwitchError> {
+pub fn restart_steam(steam: &SteamInstall, launch_args: &[String]) -> Result<(), SwitchError> {
     close_steam(steam)?;
-    launch_steam(steam)
+    launch_steam(steam, launch_args)
 }
 
 /// Names of running processes whose executable lives under a Steam library's
@@ -279,8 +319,33 @@ fn write_autologin_registry(_account_name: &str) -> Result<(), SwitchError> {
     Ok(())
 }
 
-/// Start Steam again with the launch arguments from [`STEAM_LAUNCH_ARGS`].
-fn launch_steam(steam: &SteamInstall) -> Result<(), SwitchError> {
+/// Clear the registry `AutoLoginUser` value (used when its account is removed
+/// locally, so Steam does not try to silently auto-login a deleted account).
+#[cfg(windows)]
+pub fn clear_autologin_registry() -> Result<(), SwitchError> {
+    use winreg::enums::{HKEY_CURRENT_USER, KEY_SET_VALUE};
+    use winreg::RegKey;
+
+    let hkcu = RegKey::predef(HKEY_CURRENT_USER);
+    let key = hkcu.open_subkey_with_flags("Software\\Valve\\Steam", KEY_SET_VALUE)?;
+    match key.delete_value("AutoLoginUser") {
+        Ok(()) => tracing::info!("registry AutoLoginUser cleared"),
+        // Already absent is exactly the state we want.
+        Err(ref err) if err.kind() == std::io::ErrorKind::NotFound => {}
+        Err(err) => return Err(err.into()),
+    }
+    Ok(())
+}
+
+/// Non-Windows builds have no registry to clear.
+#[cfg(not(windows))]
+pub fn clear_autologin_registry() -> Result<(), SwitchError> {
+    Ok(())
+}
+
+/// Start Steam again with the given launch arguments (an empty slice launches
+/// with no arguments; the `-silent` default lives in `Config`).
+fn launch_steam(steam: &SteamInstall, args: &[String]) -> Result<(), SwitchError> {
     let exe = steam.exe();
     if !exe.is_file() {
         // Executable vanished between discovery and here — still a hard error.
@@ -290,7 +355,7 @@ fn launch_steam(steam: &SteamInstall) -> Result<(), SwitchError> {
         )));
     }
     let mut command = std::process::Command::new(&exe);
-    command.args(STEAM_LAUNCH_ARGS);
+    command.args(args);
     tracing::info!(exe = %exe.display(), "launching Steam");
     command.spawn()?;
     Ok(())

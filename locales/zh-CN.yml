@@ -1,38 +1,82 @@
 _version: 1
 app.title: Steam 切换器
+header.active: "当前活动:"
 nav.users: 账户管理
 nav.games: 我的游戏
-nav.settings: 设置
+nav.settings: 系统设置
 nav.collapse: 收起侧边栏
 nav.expand: 展开侧边栏
-sidebar.steam_status: Steam 进程
-sidebar.running: steam.exe(运行中)
-sidebar.stopped: steam.exe(未运行)
+sidebar.steam_process: Steam 核心进程
+sidebar.running: 运行中
+sidebar.stopped: 未运行
 sidebar.restart: 重启 Steam
+sidebar.running_tooltip: Steam 运行中(点击重启)
+sidebar.stopped_tooltip: Steam 未运行(点击启动)
 sidebar.current_account: "当前:%{name}"
-users.title: Steam 账户
+users.title: 账户管理
+users.subtitle: 点击即可一键切换本地登录配置,快速重启并生效对应 Steam 账户。
+users.steamid: SteamID
+users.active_badge: 当前激活
+users.switch_btn: 一键切换
 users.switch_here: 切换到此账号
 users.in_use: 使用中
 users.empty: 未找到 Steam 账号
 users.empty_hint: 在 Steam 中登录一次并勾选“记住密码”,然后点击刷新。
+users.delete_tooltip: 移除账户
+users.delete_title: 确认移除该账户?
+users.delete_sub: 仅移除本地登录记录,不会影响 Steam 云端数据及游戏所有权。
+users.delete_ok: 确认删除
+users.deleted: 账户已从本地移除
+users.last_account: 至少保留一个 Steam 账户
+users.delete_failed: "移除失败:%{error}"
 games.title: 已安装游戏
-games.search: 搜索已安装游戏…
+games.search: 搜索游戏名称…
+games.count: "%{count} 款游戏已安装"
+games.launch: 启动游戏
 games.empty: 没有找到游戏
 games.empty_hint: 先在 Steam 中安装游戏,然后刷新。
+games.hint: 左键:以当前账户直接启动;右键:选择账户后启动
 games.pick_title: 使用哪个账号启动?
 games.pick_hint: Steam 将以所选账号重启,然后自动启动游戏。
 games.cancel: 取消
-settings.title: 设置
-settings.language: 语言
-settings.theme: 主题
+
+overlay.title: 正在热切换 Steam 账户…
+overlay.target_title: "[%{name}] - 热切换中…"
+overlay.prepare: 正在准备切换并写入登录配置…
+overlay.closing: 正在等待 Steam 客户端退出…
+overlay.writing: 正在写入 loginusers.vdf 与注册表…
+overlay.launching: 正在重新启动 Steam…
+overlay.game: 正在启动游戏…
+settings.title: 系统设置
+settings.subtitle: 个性化界面外观、程序行为与 Steam 启动路径。
+settings.appearance: 外观与显示偏好
+settings.theme_title: 主题模式(深色 / 浅色)
+settings.theme_desc: 在 Steam 经典深色沉浸主题与明亮现代浅色主题间切换
 settings.theme_system: 跟随系统
 settings.theme_dark: 深色
 settings.theme_light: 浅色
-settings.general: 常规
-settings.autostart: 开机自动启动
-settings.confirm_switch: 有 Steam 游戏在运行时,切换前先确认
+settings.lang_title: 界面语言 (Language)
+settings.lang_desc: 设置切换器界面的全局多语言支持
+settings.behavior: 常规行为与托盘
+settings.autostart: 随系统开机启动
+settings.autostart_desc: Windows 开机时自动静默常驻在系统托盘
+settings.tray_title: 关闭主窗口时最小化到托盘
+settings.tray_desc: 不退出程序,保持后台随时快速调用
+settings.killgame_title: 切号前自动结束正在运行的游戏
+settings.killgame_desc: 避免因游戏进程占用导致 Steam 客户端切号阻塞
+settings.confirm_switch: 结束运行中的游戏前先确认
+settings.confirm_desc: 先询问再退出,避免意外丢失未上传的游戏进度
+settings.paths: 路径与命令行启动参数
+settings.steam_path: Steam 主程序路径
+settings.detect: 自动检测
+settings.args_label: 额外启动参数 (Launch Args)
+settings.args_hint: 默认不添加任何参数;可添加 -silent 实现无弹窗极速切号启动
+settings.args_placeholder: 例如:-silent -no-browser
+btn.cancel: 取消
+tray.language: 语言
 tray.refresh: 刷新
 tray.settings: 设置…
+tray.open: 打开主窗口
 tray.quit: 退出
 tray.autostart: 开机自动启动
 tray.no_accounts: 未找到 Steam 账号
@@ -45,11 +89,15 @@ toast.already_active: "当前已在使用 %{name}。"
 toast.switching: "正在切换到 %{name}…(Steam 将重启)"
 toast.switched: "已切换到 %{name}。"
 toast.switch_failed: "切换失败:%{error}"
+toast.cancelled: 已取消切换。
 toast.stale_account: 该账号已不在 loginusers.vdf 中,列表已刷新。
 toast.read_failed: "读取 Steam 账号失败:%{error}"
 toast.single_account: 只记住了一个 Steam 账号,没有可循环切换的目标。
 toast.restarting_steam: 正在重启 Steam…
 toast.restarted_steam: Steam 已重启。
+toast.game_launch_failed: "启动游戏失败:%{error}"
+toast.path_detected: 已从 Windows 注册表检索到 Steam 安装路径。
+toast.detect_failed: "自动检测失败:%{error}"
 msg.games_running: |-
   以下 Steam 游戏正在运行:
 

@@ -1,38 +1,82 @@
 _version: 1
 app.title: Steam スイッチャー
+header.active: "実行中:"
 nav.users: アカウント
 nav.games: マイゲーム
 nav.settings: 設定
 nav.collapse: サイドバーを折りたたむ
 nav.expand: サイドバーを展開
-sidebar.steam_status: Steam プロセス
-sidebar.running: steam.exe(実行中)
-sidebar.stopped: steam.exe(停止中)
+sidebar.steam_process: Steam プロセス
+sidebar.running: 実行中
+sidebar.stopped: 停止中
 sidebar.restart: Steam を再起動
+sidebar.running_tooltip: Steam は実行中(クリックで再起動)
+sidebar.stopped_tooltip: Steam は停止中(クリックで起動)
 sidebar.current_account: "現在:%{name}"
-users.title: Steam アカウント
+users.title: アカウント管理
+users.subtitle: ワンクリックでローカルログインを切替、Steam を再起動してアカウントを即座に反映します。
+users.steamid: SteamID
+users.active_badge: 使用中
+users.switch_btn: 切替
 users.switch_here: このアカウントへ切替
 users.in_use: 使用中
 users.empty: Steam アカウントが見つかりません
 users.empty_hint: 「パスワードを記憶」で一度ログインし、更新を押してください。
+users.delete_tooltip: アカウントを削除
+users.delete_title: このアカウントを削除しますか?
+users.delete_sub: ローカルのログイン情報を削除するだけです。クラウドデータとゲーム所有権には影響しません。
+users.delete_ok: 削除
+users.deleted: アカウントをローカルから削除しました
+users.last_account: Steam アカウントは 1 つ以上必要です
+users.delete_failed: "削除に失敗:%{error}"
 games.title: インストール済みゲーム
 games.search: ゲームを検索…
+games.count: "%{count} 本のゲームをインストール済み"
+games.launch: 起動
 games.empty: ゲームが見つかりません
 games.empty_hint: Steam でゲームをインストールしてから更新してください。
+games.hint: 左クリック:現在のアカウントで即起動/右クリック:アカウントを選んで起動
 games.pick_title: どのアカウントで起動しますか?
 games.pick_hint: 選択したアカウントで Steam が再起動し、ゲームが起動します。
 games.cancel: キャンセル
+
+overlay.title: Steam アカウントを切替中…
+overlay.target_title: "[%{name}] - 切替中…"
+overlay.prepare: 切替を準備しログイン設定を書き込んでいます…
+overlay.closing: Steam クライアントの終了を待っています…
+overlay.writing: loginusers.vdf とレジストリを書き込んでいます…
+overlay.launching: Steam を再起動しています…
+overlay.game: ゲームを起動しています…
 settings.title: 設定
-settings.language: 言語
-settings.theme: テーマ
+settings.subtitle: 外観、動作、Steam の起動パスをカスタマイズします。
+settings.appearance: 外観と表示
+settings.theme_title: テーマモード(ダーク / ライト)
+settings.theme_desc: Steam の没入感のあるダークテーマと明るいライトテーマを切替
 settings.theme_system: システムに従う
 settings.theme_dark: ダーク
 settings.theme_light: ライト
-settings.general: 全般
+settings.lang_title: 表示言語
+settings.lang_desc: スイッチャー UI の言語を選択
+settings.behavior: 動作とトレイ
 settings.autostart: Windows 起動時に開始
-settings.confirm_switch: Steam ゲーム実行中は切替前に確認する
+settings.autostart_desc: Windows 起動時にシステムトレイに常駐
+settings.tray_title: 閉じるとトレイに最小化
+settings.tray_desc: バックグラウンドで待機し、いつでも素早く呼び出せます
+settings.killgame_title: 切替前に実行中のゲームを終了
+settings.killgame_desc: ゲームプロセスのロックで Steam の切替が阻塞されるのを防ぎます
+settings.confirm_switch: 実行中のゲームを終了する前に確認
+settings.confirm_desc: 確認してから終了するので、未保存の進行状況を失いません
+settings.paths: パスと起動引数
+settings.steam_path: Steam 実行ファイルのパス
+settings.detect: 自動検出
+settings.args_label: 追加の起動引数
+settings.args_hint: 既定では引数なし。-silent を追加するとポップアップなしの高速切替が可能
+settings.args_placeholder: "例: -silent -no-browser"
+btn.cancel: キャンセル
+tray.language: 言語
 tray.refresh: 更新
 tray.settings: 設定…
+tray.open: メインウィンドウを開く
 tray.quit: 終了
 tray.autostart: Windows 起動時に開始
 tray.no_accounts: Steam アカウントが見つかりません
@@ -45,11 +89,15 @@ toast.already_active: "既に %{name} を使用中です。"
 toast.switching: "%{name} に切替中…(Steam が再起動します)"
 toast.switched: "%{name} に切替ました。"
 toast.switch_failed: "切替に失敗:%{error}"
+toast.cancelled: 切替をキャンセルしました。
 toast.stale_account: このアカウントは loginusers.vdf に存在しません。一覧を更新しました。
 toast.read_failed: "Steam アカウントの読み取りに失敗:%{error}"
 toast.single_account: 記憶されたアカウントが 1 つのみのため、切替先がありません。
 toast.restarting_steam: Steam を再起動中…
 toast.restarted_steam: Steam を再起動しました。
+toast.game_launch_failed: "ゲームの起動に失敗:%{error}"
+toast.path_detected: Windows レジストリから Steam のインストール先を取得しました。
+toast.detect_failed: "自動検出に失敗:%{error}"
 msg.games_running: |-
   次の Steam ゲームが実行中です:
 

@@ -1,0 +1,114 @@
+_version: 1
+app.title: Steam 切換器
+header.active: "目前啟動:"
+nav.users: 帳號管理
+nav.games: 我的遊戲
+nav.settings: 系統設定
+nav.collapse: 收合側邊欄
+nav.expand: 展開側邊欄
+sidebar.steam_process: Steam 核心處理程序
+sidebar.running: 執行中
+sidebar.stopped: 未執行
+sidebar.restart: 重新啟動 Steam
+sidebar.running_tooltip: Steam 執行中(點擊重新啟動)
+sidebar.stopped_tooltip: Steam 未執行(點擊啟動)
+sidebar.current_account: "目前:%{name}"
+users.title: 帳號管理
+users.subtitle: 點擊即可一鍵切換本機登入設定,快速重新啟動並套用對應 Steam 帳號。
+users.steamid: SteamID
+users.active_badge: 目前使用
+users.switch_btn: 一鍵切換
+users.switch_here: 切換至此帳號
+users.in_use: 使用中
+users.empty: 找不到 Steam 帳號
+users.empty_hint: 在 Steam 登入一次並勾選「記住密碼」,然後點擊重新整理。
+users.delete_tooltip: 移除帳號
+users.delete_title: 確認移除此帳號?
+users.delete_sub: 僅移除本機登入紀錄,不會影響 Steam 雲端資料與遊戲所有權。
+users.delete_ok: 確認刪除
+users.deleted: 帳號已從本機移除
+users.last_account: 至少需保留一個 Steam 帳號
+users.delete_failed: "移除失敗:%{error}"
+games.title: 已安裝遊戲
+games.search: 搜尋遊戲名稱…
+games.count: "已安裝 %{count} 款遊戲"
+games.launch: 啟動遊戲
+games.empty: 找不到遊戲
+games.empty_hint: 請先在 Steam 安裝遊戲,然後重新整理。
+games.hint: 左鍵:以目前帳號直接啟動;右鍵:選擇帳號後啟動
+games.pick_title: 要以哪個帳號啟動?
+games.pick_hint: Steam 將以所選帳號重新啟動,然後自動啟動遊戲。
+games.cancel: 取消
+
+overlay.title: 正在熱切換 Steam 帳號…
+overlay.target_title: "[%{name}] - 熱切換中…"
+overlay.prepare: 正在準備切換並寫入登入設定…
+overlay.closing: 正在等待 Steam 用戶端結束…
+overlay.writing: 正在寫入 loginusers.vdf 與登錄檔…
+overlay.launching: 正在重新啟動 Steam…
+overlay.game: 正在啟動遊戲…
+settings.title: 系統設定
+settings.subtitle: 個人化介面外觀、程式行為與 Steam 啟動路徑。
+settings.appearance: 外觀與顯示偏好
+settings.theme_title: 主題模式(深色 / 淺色)
+settings.theme_desc: 於 Steam 經典深色沉浸主題與明亮現代淺色主題間切換
+settings.theme_system: 跟隨系統
+settings.theme_dark: 深色
+settings.theme_light: 淺色
+settings.lang_title: 介面語言 (Language)
+settings.lang_desc: 設定切換器介面的全域多語言支援
+settings.behavior: 常規行為與系統匣
+settings.autostart: 隨系統開機啟動
+settings.autostart_desc: Windows 開機時自動常駐於系統匣
+settings.tray_title: 關閉主視窗時縮小到系統匣
+settings.tray_desc: 不結束程式,保持背景隨時快速呼叫
+settings.killgame_title: 切換帳號前自動關閉進行中的遊戲
+settings.killgame_desc: 避免遊戲處理程序佔用導致 Steam 切換阻塞
+settings.confirm_switch: 結束執行中的遊戲前先確認
+settings.confirm_desc: 先詢問再結束,避免意外遺失未上傳的遊戲進度
+settings.paths: 路徑與命令列啟動參數
+settings.steam_path: Steam 主程式路徑
+settings.detect: 自動偵測
+settings.args_label: 額外啟動參數 (Launch Args)
+settings.args_hint: 預設不添加任何參數;可添加 -silent 實現無彈窗極速切換啟動
+settings.args_placeholder: 例如:-silent -no-browser
+btn.cancel: 取消
+tray.language: 語言
+tray.refresh: 重新整理
+tray.settings: 設定…
+tray.open: 開啟主視窗
+tray.quit: 結束
+tray.autostart: 開機自動啟動
+tray.no_accounts: 找不到 Steam 帳號
+toast.refreshed: 帳號清單已重新整理。
+toast.autostart_on: steam-switcher 將隨 Windows 啟動。
+toast.autostart_off: steam-switcher 將不再隨 Windows 啟動。
+toast.autostart_failed: "自動啟動設定失敗:%{error}"
+toast.busy: 已有一個切換正在進行,請稍候。
+toast.already_active: "目前已在使用 %{name}。"
+toast.switching: "正在切換至 %{name}…(Steam 將重新啟動)"
+toast.switched: "已切換至 %{name}。"
+toast.switch_failed: "切換失敗:%{error}"
+toast.cancelled: 已取消切換。
+toast.stale_account: 該帳號已不在 loginusers.vdf 中,清單已重新整理。
+toast.read_failed: "讀取 Steam 帳號失敗:%{error}"
+toast.single_account: 僅記住一個 Steam 帳號,沒有可切換的目標。
+toast.restarting_steam: 正在重新啟動 Steam…
+toast.restarted_steam: Steam 已重新啟動。
+toast.game_launch_failed: "啟動遊戲失敗:%{error}"
+toast.path_detected: 已從 Windows 登錄檔偵測到 Steam 安裝路徑。
+toast.detect_failed: "自動偵測失敗:%{error}"
+msg.games_running: |-
+  以下 Steam 遊戲正在執行:
+
+  %{games}
+
+  現在結束 Steam 可能遺失未上傳的進度(雲端存檔於結束時上傳)。
+
+  仍要結束並切換嗎?
+msg.games_running_title: Steam 遊戲正在執行
+msg.already_running: steam-switcher 已在系統匣中執行。
+msg.steam_not_found: |-
+  無法定位 Steam 安裝目錄。
+
+  %{error}

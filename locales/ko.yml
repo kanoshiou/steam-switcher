@@ -1,38 +1,82 @@
 _version: 1
 app.title: Steam 스위처
+header.active: "실행 중:"
 nav.users: 계정
 nav.games: 내 게임
 nav.settings: 설정
 nav.collapse: 사이드바 접기
 nav.expand: 사이드바 펼치기
-sidebar.steam_status: Steam 프로세스
-sidebar.running: steam.exe(실행 중)
-sidebar.stopped: steam.exe(꺼짐)
+sidebar.steam_process: Steam 프로세스
+sidebar.running: 실행 중
+sidebar.stopped: 꺼짐
 sidebar.restart: Steam 재시작
-sidebar.current_account: "현재:%{name}"
-users.title: Steam 계정
+sidebar.running_tooltip: Steam 실행 중(클릭하여 재시작)
+sidebar.stopped_tooltip: Steam 꺼짐(클릭하여 실행)
+sidebar.current_account: "현재: %{name}"
+users.title: 계정 관리
+users.subtitle: 한 번의 클릭으로 로컬 로그인을 전환하고 Steam을 재시작하여 계정을 즉시 적용합니다.
+users.steamid: SteamID
+users.active_badge: 사용 중
+users.switch_btn: 전환
 users.switch_here: 이 계정으로 전환
 users.in_use: 사용 중
 users.empty: Steam 계정을 찾을 수 없음
 users.empty_hint: 비밀번호 기억을 켜고 한 번 로그인한 뒤 새로 고침을 누르세요.
+users.delete_tooltip: 계정 제거
+users.delete_title: 이 계정을 제거할까요?
+users.delete_sub: 로컬 로그인 정보만 제거됩니다. 클라우드 데이터와 게임 소유권은 영향을 받지 않습니다.
+users.delete_ok: 삭제
+users.deleted: 계정을 로컬에서 제거했습니다
+users.last_account: Steam 계정은 하나 이상 남아 있어야 합니다
+users.delete_failed: "제거 실패: %{error}"
 games.title: 설치된 게임
-games.search: 설치된 게임 검색…
+games.search: 게임 검색…
+games.count: "%{count}개 게임 설치됨"
+games.launch: 실행
 games.empty: 게임을 찾을 수 없음
 games.empty_hint: Steam에서 게임을 설치한 뒤 새로 고침하세요.
+games.hint: "왼쪽 클릭: 현재 계정으로 바로 실행 / 오른쪽 클릭: 계정 선택 후 실행"
 games.pick_title: 어떤 계정으로 실행할까요?
 games.pick_hint: 선택한 계정으로 Steam이 재시작된 후 게임이 실행됩니다.
 games.cancel: 취소
+
+overlay.title: Steam 계정 전환 중…
+overlay.target_title: "[%{name}] - 전환 중…"
+overlay.prepare: 전환을 준비하고 로그인 설정을 쓰는 중…
+overlay.closing: Steam 클라이언트 종료를 기다리는 중…
+overlay.writing: loginusers.vdf와 레지스트리를 쓰는 중…
+overlay.launching: Steam을 재시작하는 중…
+overlay.game: 게임을 실행하는 중…
 settings.title: 설정
-settings.language: 언어
-settings.theme: 테마
+settings.subtitle: 화면 표시, 동작, Steam 실행 경로를 사용자 지정합니다.
+settings.appearance: 화면 표시
+settings.theme_title: 테마 모드(다크 / 라이트)
+settings.theme_desc: Steam 몰입감 다크 테마와 밝은 라이트 테마 사이 전환
 settings.theme_system: 시스템 따라가기
 settings.theme_dark: 다크
 settings.theme_light: 라이트
-settings.general: 일반
+settings.lang_title: 표시 언어
+settings.lang_desc: 스위처 UI의 전역 언어 선택
+settings.behavior: 동작 및 트레이
 settings.autostart: Windows 시작 시 자동 실행
-settings.confirm_switch: Steam 게임 실행 중 전환 시 확인
+settings.autostart_desc: Windows 부팅 시 시스템 트레이에 상주
+settings.tray_title: 닫을 때 트레이로 최소화
+settings.tray_desc: 백그라운드에 상주하여 언제든 빠르게 호출
+settings.killgame_title: 전환 전 실행 중인 게임 종료
+settings.killgame_desc: 게임 프로세스 잠금으로 Steam 전환이 막히는 것을 방지
+settings.confirm_switch: 실행 중인 게임을 종료하기 전 확인
+settings.confirm_desc: 먼저 물어보므로 저장되지 않은 진행 상황을 잃지 않습니다
+settings.paths: 경로 및 실행 인자
+settings.steam_path: Steam 실행 파일 경로
+settings.detect: 자동 감지
+settings.args_label: 추가 실행 인자
+settings.args_hint: 기본값은 인자 없음입니다. -silent를 추가하면 팝업 없이 빠르게 전환됩니다
+settings.args_placeholder: "예: -silent -no-browser"
+btn.cancel: 취소
+tray.language: 언어
 tray.refresh: 새로 고침
 tray.settings: 설정…
+tray.open: 메인 창 열기
 tray.quit: 종료
 tray.autostart: Windows 시작 시 자동 실행
 tray.no_accounts: Steam 계정을 찾을 수 없음
@@ -45,11 +89,15 @@ toast.already_active: "이미 %{name} 사용 중입니다."
 toast.switching: "%{name}(으)로 전환 중…(Steam이 재시작됩니다)"
 toast.switched: "%{name}(으)로 전환했습니다."
 toast.switch_failed: "전환 실패: %{error}"
+toast.cancelled: 전환을 취소했습니다.
 toast.stale_account: 이 계정은 loginusers.vdf에 없습니다. 목록을 새로 고쳤습니다.
 toast.read_failed: "Steam 계정 읽기 실패: %{error}"
 toast.single_account: 저장된 계정이 하나뿐이라 전환할 대상이 없습니다.
 toast.restarting_steam: Steam 재시작 중…
 toast.restarted_steam: Steam을 재시작했습니다.
+toast.game_launch_failed: "게임 실행 실패: %{error}"
+toast.path_detected: Windows 레지스트리에서 Steam 설치 경로를 가져왔습니다.
+toast.detect_failed: "자동 감지 실패: %{error}"
 msg.games_running: |-
   다음 Steam 게임이 실행 중입니다:
 
