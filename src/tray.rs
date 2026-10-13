@@ -147,6 +147,8 @@ fn build_menu(users: &[SteamUser], autostart_enabled: bool, config: &Config) -> 
     ));
     let _ = menu.append(&build_settings_submenu(autostart_enabled, config));
     let _ = menu.append(&PredefinedMenuItem::separator());
+    // The "Open" item only makes sense when the settings window exists.
+    #[cfg(all(windows, feature = "gui"))]
     let _ = menu.append(&MenuItem::with_id(
         "open",
         rust_i18n::t!("tray.open"),

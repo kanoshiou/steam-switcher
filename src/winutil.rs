@@ -3,8 +3,8 @@
 
 use windows::core::HSTRING;
 use windows::Win32::UI::WindowsAndMessaging::{
-    DispatchMessageW, GetMessageW, MessageBoxW, TranslateMessage, MB_ICONWARNING, MB_OKCANCEL,
-    MB_SETFOREGROUND, MB_TOPMOST, MESSAGEBOX_RESULT, MSG,
+    DispatchMessageW, GetMessageW, MessageBoxW, PeekMessageW, TranslateMessage, MB_ICONWARNING,
+    MB_OKCANCEL, MB_SETFOREGROUND, MB_TOPMOST, MESSAGEBOX_RESULT, MSG, PM_REMOVE,
 };
 
 /// Show a modal message box with no owner window.
@@ -45,6 +45,28 @@ pub fn run_message_pump() {
             break;
         }
         // SAFETY: msg came straight from GetMessageW and is a queued message.
+        unsafe {
+            let _ = TranslateMessage(&msg);
+            DispatchMessageW(&msg);
+        }
+    }
+}
+
+/// Dispatch all currently queued win32 messages without blocking.
+///
+/// Non-blocking counterpart to [`run_message_pump`]: the tray-only loop calls
+/// this between menu-event polls so the tray icon's hidden window keeps
+/// receiving its messages while the thread also drains the event channels.
+pub fn pump_pending_messages() {
+    let mut msg = MSG::default();
+    loop {
+        // SAFETY: `msg` is a valid, default-initialized MSG; PM_REMOVE takes
+        // the message out of the queue, and false means the queue is empty.
+        let pending = unsafe { PeekMessageW(&mut msg, None, 0, 0, PM_REMOVE) };
+        if !pending.as_bool() {
+            break;
+        }
+        // SAFETY: msg came straight from PeekMessageW and is a queued message.
         unsafe {
             let _ = TranslateMessage(&msg);
             DispatchMessageW(&msg);

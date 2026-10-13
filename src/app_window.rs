@@ -99,7 +99,7 @@ impl AppWindow {
         // Auto-save: persist the launch args whenever the field loses focus.
         cx.subscribe(&args_input, Self::on_args_event).detach();
         let users_sorted = users::sorted_by_recency(users.clone());
-        let active_steam_id64 = crate::app::resolve_active_steam_id64(&users);
+        let active_steam_id64 = crate::switch_flow::resolve_active_steam_id64(&users);
         Self {
             steam_exe: steam.exe().to_string_lossy().into_owned(),
             args_input,
@@ -129,13 +129,13 @@ impl AppWindow {
     pub fn reload_data(&mut self) {
         self.config = Config::load();
         self.autostart_enabled = crate::autostart::is_enabled();
-        self.users = crate::app::load_users_lenient(&self.steam);
+        self.users = crate::switch_flow::load_users_lenient(&self.steam);
         self.users_sorted = users::sorted_by_recency(self.users.clone());
         self.games = library::installed_games(&self.steam).unwrap_or_default();
         self.games_lower = self.games.iter().map(|game| game.name.to_lowercase()).collect();
         self.steam_running = switch::steam_running();
         self.steam_exe = self.steam.exe().to_string_lossy().into_owned();
-        self.active_steam_id64 = crate::app::resolve_active_steam_id64(&self.users);
+        self.active_steam_id64 = crate::switch_flow::resolve_active_steam_id64(&self.users);
     }
 
     fn on_search_changed(

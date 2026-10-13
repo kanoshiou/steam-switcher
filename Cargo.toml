@@ -6,12 +6,20 @@ rust-version = "1.95"
 description = "Tray-based Steam account switcher with one-click game launch"
 license = "MIT"
 
+[features]
+# Default build: tray icon + gpui settings window. `--no-default-features`
+# produces the tray-only executable (no gpui; the switcher lives entirely in
+# the tray menu).
+default = ["gui"]
+gui = ["dep:gpui-kit"]
+
 [dependencies]
 # --- P1: tray and OS integration ---
 tray-icon = "0.26"
 sysinfo = "0.39"
 notify-rust = "4"
-gpui-kit = "0.7"
+# GUI-only (the `gui` feature): gpui-kit 0.7 settings window.
+gpui-kit = { version = "0.7", optional = true }
 rust-i18n = "4"
 sys-locale = "0.3"
 

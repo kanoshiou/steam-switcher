@@ -1,0 +1,119 @@
+name: Release
+
+# Tag-driven packaging: push a tag (e.g. v0.1.0) to build every
+# platform/variant pair and attach the archives to a GitHub release.
+#
+# Two executables per platform:
+#   - gui  (default features): tray icon + gpui settings window
+#   - tray (--no-default-features): tray-only, no gpui dependency
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build:
+    name: ${{ matrix.target }} / ${{ matrix.variant }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        variant: [gui, tray]
+        include:
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+          - os: macos-latest # arm64 runner → native aarch64 build
+            target: aarch64-apple-darwin
+          # Oldest supported image → the binaries link an older glibc and run
+          # on more distros. Move to ubuntu-24.04 when this image is retired.
+          - os: ubuntu-22.04
+            target: x86_64-unknown-linux-gnu
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - name: Cache cargo build
+        uses: Swatinem/rust-cache@v2
+        with:
+          key: ${{ matrix.target }}-${{ matrix.variant }}
+
+      - name: Install Linux system libraries
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          # libayatana-appindicator + libgtk: tray-icon's Linux backend.
+          # libfontconfig / libxkbcommon / libwayland: gpui build deps (gui
+          # variant). zip: packaging below.
+          sudo apt-get install -y \
+            libayatana-appindicator3-dev libgtk-3-dev \
+            libfontconfig1-dev libxkbcommon-dev libxkbcommon-x11-dev \
+            libwayland-dev pkg-config zip
+
+      # Cheap, platform-independent vdf/config tests; the gui matrix runs the
+      # heavy gpui link twice otherwise.
+      - name: Run tests
+        if: runner.os == 'Linux' && matrix.variant == 'tray'
+        run: cargo test --locked --no-default-features
+
+      - name: Build gui executable
+        if: matrix.variant == 'gui'
+        run: cargo build --release --locked --target ${{ matrix.target }}
+
+      - name: Build tray-only executable
+        if: matrix.variant == 'tray'
+        run: cargo build --release --locked --no-default-features --target ${{ matrix.target }}
+
+      - name: Package
+        shell: bash
+        run: |
+          name="steam-switcher-${GITHUB_REF_NAME}-${{ matrix.target }}-${{ matrix.variant }}"
+          ext=""
+          if [[ "$RUNNER_OS" == "Windows" ]]; then ext=".exe"; fi
+          mkdir dist
+          cp "target/${{ matrix.target }}/release/steam-switcher${ext}" "dist/${name}${ext}"
+          if [[ "$RUNNER_OS" == "Windows" ]]; then
+            powershell -NoProfile -Command "Compress-Archive -Path 'dist/${name}${ext}' -DestinationPath 'dist/${name}.zip' -Force"
+            (cd dist && sha256sum "${name}.zip" > "${name}.zip.sha256")
+          else
+            (cd dist && zip -q "${name}.zip" "${name}${ext}")
+            if [[ "$RUNNER_OS" == "macOS" ]]; then
+              (cd dist && shasum -a 256 "${name}.zip" > "${name}.zip.sha256")
+            else
+              (cd dist && sha256sum "${name}.zip" > "${name}.zip.sha256")
+            fi
+          fi
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.target }}-${{ matrix.variant }}
+          path: dist/*
+          if-no-files-found: error
+
+  release:
+    name: Publish release
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+
+      - name: Attach archives to the release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*
+          generate_release_notes: true
+          prerelease: ${{ contains(github.ref_name, '-') }}
