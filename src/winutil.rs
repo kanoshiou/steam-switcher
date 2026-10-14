@@ -73,3 +73,40 @@ pub fn pump_pending_messages() {
         }
     }
 }
+
+/// Hide a window from the screen, taskbar and alt-tab (`SW_HIDE`) while its
+/// process keeps running — the close-to-tray behavior, which gpui has no safe
+/// API for. gpui observes the resulting `WM_SHOWWINDOW` and pauses presenting
+/// frames until the window is restored.
+///
+/// The companion of [`restore_platform_window`].
+pub fn hide_platform_window(hwnd: windows::Win32::Foundation::HWND) {
+    use windows::Win32::UI::WindowsAndMessaging::{SW_HIDE, ShowWindow};
+    // SAFETY: `hwnd` is the live platform window of the caller's gpui window;
+    // ShowWindow only changes its placement.
+    unsafe {
+        let _ = ShowWindow(hwnd, SW_HIDE);
+    }
+}
+
+/// Bring a hidden or minimized window back on screen: `SW_SHOW` when hidden
+/// (keeps its normal/maximized placement), `SW_RESTORE` when minimized, and
+/// nothing when already shown. Returns whether a `ShowWindow` call was made.
+pub fn restore_platform_window(hwnd: windows::Win32::Foundation::HWND) -> bool {
+    use windows::Win32::UI::WindowsAndMessaging::{
+        IsIconic, IsWindowVisible, SW_RESTORE, SW_SHOW, ShowWindow,
+    };
+    // SAFETY: `hwnd` is the live platform window of the caller's gpui window;
+    // the queries only read its placement and ShowWindow only changes it.
+    unsafe {
+        if !IsWindowVisible(hwnd).as_bool() {
+            let _ = ShowWindow(hwnd, SW_SHOW);
+            true
+        } else if IsIconic(hwnd).as_bool() {
+            let _ = ShowWindow(hwnd, SW_RESTORE);
+            true
+        } else {
+            false
+        }
+    }
+}

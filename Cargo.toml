@@ -44,6 +44,9 @@ windows = { version = "0.62", features = [
     "Win32_System_Threading",
     "Win32_UI_WindowsAndMessaging",
 ] }
+# Same major as gpui's re-exported `HasWindowHandle`: the HWND bridge for the
+# win32 hide/restore calls behind the minimize-to-tray behavior.
+raw-window-handle = "0.6"
 # Windows-only: compiling this on Linux emits a compile_error!
 winreg = "0.56"
 

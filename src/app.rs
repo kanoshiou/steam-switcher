@@ -17,7 +17,7 @@ use std::time::Duration;
 use anyhow::Context as _;
 use gpui_kit::component::notification::Notification;
 use gpui_kit::component::WindowExt;
-use gpui_kit::{Anchor, AnyWindowHandle, App, AppContext, AsyncApp, Entity, Global, TitlebarOptions, WindowOptions, px, size};
+use gpui_kit::{Anchor, AnyWindowHandle, App, AppContext, AsyncApp, Entity, Global, TitlebarOptions, Window, WindowOptions, px, size};
 use rust_i18n::t;
 
 use crate::autostart;
@@ -54,7 +54,8 @@ pub struct AppState {
     /// `AppWindow`; this entity is the way to reach the view.
     view: Entity<AppWindow>,
     /// Approximation of the app window's taskbar presence: `true` after
-    /// open/activate, `false` after a minimize. Tray left-click toggles it.
+    /// open/activate, `false` after a minimize or a hide-to-tray. Tray
+    /// left-click toggles it.
     window_shown: bool,
     switching: Arc<AtomicBool>,
     /// Progress milestone of the in-flight switch (a [`SwitchStage`] number,
@@ -196,7 +197,8 @@ fn run_gpui(steam: SteamInstall) {
         });
 
         // Veto real closes: with tray-minimize on (the default) the X button
-        // minimizes instead; with it off, closing quits. The callback runs
+        // hides the window (taskbar + alt-tab) and the process lives on in
+        // the tray; with it off, closing quits. The callback runs
         // while the window is already on the update stack, so re-entering
         // `window.update` would silently fail — defer instead.
         let _ = handle.update(cx, |_, window, cx| {
@@ -306,23 +308,19 @@ async fn event_loop(cx: &mut AsyncApp) {
             } = event
             {
                 cx.update(|cx| {
-                    // Extract state first: the window update needs `cx` too.
-                    let (window, shown) = {
-                        let state = cx.global::<AppState>();
-                        (state.window, state.window_shown)
-                    };
-                    if let Some(window) = window {
-                        let _ = window.update(cx, |_, window, _| {
-                            if shown {
-                                window.minimize_window()
-                            } else {
-                                window.activate_window()
-                            }
-                        });
-                        cx.global_mut::<AppState>().window_shown = !shown;
-                        if !shown {
-                            refresh_window(cx);
+                    // Toggle: shown → out of the way, hidden → back. The
+                    // hide side mirrors the close gesture: to tray (hidden)
+                    // when minimize-to-tray is on, a plain minimize otherwise.
+                    let shown = cx.global::<AppState>().window_shown;
+                    if shown {
+                        if Config::load().minimize_to_tray {
+                            hide_window(cx);
+                        } else {
+                            minimize_window(cx);
                         }
+                    } else {
+                        show_window(cx);
+                        refresh_window(cx);
                     }
                 });
             }
@@ -728,11 +726,11 @@ pub fn set_autostart(cx: &mut App, checked: bool) {
     refresh_window(cx);
 }
 
-/// The title bar close button / native close: minimize to tray when enabled,
+/// The title bar close button / native close: hide to tray when enabled,
 /// otherwise quit the whole app.
 pub fn close_main_window(cx: &mut App) {
     if Config::load().minimize_to_tray {
-        minimize_window(cx);
+        hide_window(cx);
     } else {
         tracing::info!("quit requested from window close");
         cx.quit();
@@ -784,24 +782,62 @@ pub(crate) fn refresh_window(cx: &mut App) {
     });
 }
 
-/// Restore/activate the app window.
+/// Restore/activate the app window. Also un-hides it after a close-to-tray
+/// (and restores it from a plain minimize), so tray clicks work from any
+/// hidden state.
 fn show_window(cx: &mut App) {
     let window = cx.global_mut::<AppState>().window;
     if let Some(window) = window {
         // Err = the window was closed meanwhile; nothing to show.
-        let _ = window.update(cx, |_, window, _| window.activate_window());
+        let _ = window.update(cx, |_, window, _| {
+            if let Some(hwnd) = window_hwnd(window) {
+                winutil::restore_platform_window(hwnd);
+            }
+            window.activate_window();
+        });
     }
     cx.global_mut::<AppState>().window_shown = true;
 }
 
-/// Minimize the app window (gpui has no hide; minimize is the tray-app
-/// compromise planned in docs/plan.md P2).
+/// Hide the app window from the screen, taskbar and alt-tab while the process
+/// keeps running: the minimize-to-tray behavior. gpui has no hide API, so
+/// this is `ShowWindow(SW_HIDE)` on the platform window (gpui sees the
+/// resulting `WM_SHOWWINDOW` and pauses presentation until restore).
+fn hide_window(cx: &mut App) {
+    let window = cx.global_mut::<AppState>().window;
+    if let Some(window) = window {
+        let _ = window.update(cx, |_, window, _| {
+            if let Some(hwnd) = window_hwnd(window) {
+                winutil::hide_platform_window(hwnd);
+            }
+        });
+    }
+    cx.global_mut::<AppState>().window_shown = false;
+}
+
+/// Minimize the app window to the taskbar. The fallback "get out of the way"
+/// gesture when the minimize-to-tray setting is off.
 fn minimize_window(cx: &mut App) {
     let window = cx.global_mut::<AppState>().window;
     if let Some(window) = window {
         let _ = window.update(cx, |_, window, _| window.minimize_window());
     }
     cx.global_mut::<AppState>().window_shown = false;
+}
+
+/// The platform HWND behind a gpui window, for the win32 hide/restore calls
+/// that gpui lacks a safe API for (close-to-tray). The trait method is called
+/// explicitly: gpui's inherent `Window::window_handle` (returning
+/// [`gpui_kit::AnyWindowHandle`]) shadows it.
+fn window_hwnd(window: &Window) -> Option<windows::Win32::Foundation::HWND> {
+    use raw_window_handle::{HasWindowHandle, RawWindowHandle};
+    let handle = HasWindowHandle::window_handle(window).ok()?;
+    match handle.as_raw() {
+        RawWindowHandle::Win32(win) => Some(windows::Win32::Foundation::HWND(
+            win.hwnd.get() as *mut std::ffi::c_void,
+        )),
+        _ => None,
+    }
 }
 
 /// Run `f` against the app window's content view. Uses the view entity rather
