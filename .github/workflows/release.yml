@@ -1,7 +1,8 @@
 name: Release
 
 # Tag-driven packaging: push a tag (e.g. v0.1.0) to build every
-# platform/variant pair and attach the archives to a GitHub release.
+# Windows variant and attach the archives to a GitHub release.
+# (macOS/Linux matrix entries are commented out — not supported yet.)
 #
 # Two executables per platform:
 #   - gui  (default features): tray icon + gpui settings window
@@ -35,20 +36,23 @@ jobs:
           - os: windows-latest
             target: x86_64-pc-windows-msvc
             variant: tray
-          - os: macos-latest # arm64 runner → native aarch64 build
-            target: aarch64-apple-darwin
-            variant: gui
-          - os: macos-latest
-            target: aarch64-apple-darwin
-            variant: tray
+          # macOS/Linux packaging disabled — Windows-only until those
+          # platforms are actually supported and tested. Re-enable by
+          # uncommenting the entries below.
+          # - os: macos-latest # arm64 runner → native aarch64 build
+          #   target: aarch64-apple-darwin
+          #   variant: gui
+          # - os: macos-latest
+          #   target: aarch64-apple-darwin
+          #   variant: tray
           # Oldest supported image → the binaries link an older glibc and run
           # on more distros. Move to ubuntu-24.04 when this image is retired.
-          - os: ubuntu-22.04
-            target: x86_64-unknown-linux-gnu
-            variant: gui
-          - os: ubuntu-22.04
-            target: x86_64-unknown-linux-gnu
-            variant: tray
+          # - os: ubuntu-22.04
+          #   target: x86_64-unknown-linux-gnu
+          #   variant: gui
+          # - os: ubuntu-22.04
+          #   target: x86_64-unknown-linux-gnu
+          #   variant: tray
     steps:
       - uses: actions/checkout@v4
 
@@ -62,23 +66,24 @@ jobs:
         with:
           key: ${{ matrix.target }}-${{ matrix.variant }}
 
-      - name: Install Linux system libraries
-        if: runner.os == 'Linux'
-        run: |
-          sudo apt-get update
-          # libayatana-appindicator + libgtk: tray-icon's Linux backend.
-          # libfontconfig / libxkbcommon / libwayland: gpui build deps (gui
-          # variant). zip: packaging below.
-          sudo apt-get install -y \
-            libayatana-appindicator3-dev libgtk-3-dev \
-            libfontconfig1-dev libxkbcommon-dev libxkbcommon-x11-dev \
-            libwayland-dev pkg-config zip
+      # Linux-only steps, dormant while no Linux matrix entry runs.
+      # - name: Install Linux system libraries
+      #   if: runner.os == 'Linux'
+      #   run: |
+      #     sudo apt-get update
+      #     # libayatana-appindicator + libgtk: tray-icon's Linux backend.
+      #     # libfontconfig / libxkbcommon / libwayland: gpui build deps (gui
+      #     # variant). zip: packaging below.
+      #     sudo apt-get install -y \
+      #       libayatana-appindicator3-dev libgtk-3-dev \
+      #       libfontconfig1-dev libxkbcommon-dev libxkbcommon-x11-dev \
+      #       libwayland-dev pkg-config zip
 
       # Cheap, platform-independent vdf/config tests; the gui matrix runs the
       # heavy gpui link twice otherwise.
-      - name: Run tests
-        if: runner.os == 'Linux' && matrix.variant == 'tray'
-        run: cargo test --locked --no-default-features
+      # - name: Run tests
+      #   if: runner.os == 'Linux' && matrix.variant == 'tray'
+      #   run: cargo test --locked --no-default-features
 
       - name: Build gui executable
         if: matrix.variant == 'gui'
