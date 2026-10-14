@@ -24,16 +24,31 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        variant: [gui, tray]
+        # include-only: every entry is a self-contained combination. Mixing a
+        # variant: [gui, tray] axis with include entries that only set
+        # os/target would make each include merge into every variant, letting
+        # the last entry silently overwrite the Windows/macOS ones.
         include:
           - os: windows-latest
             target: x86_64-pc-windows-msvc
+            variant: gui
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+            variant: tray
           - os: macos-latest # arm64 runner → native aarch64 build
             target: aarch64-apple-darwin
+            variant: gui
+          - os: macos-latest
+            target: aarch64-apple-darwin
+            variant: tray
           # Oldest supported image → the binaries link an older glibc and run
           # on more distros. Move to ubuntu-24.04 when this image is retired.
           - os: ubuntu-22.04
             target: x86_64-unknown-linux-gnu
+            variant: gui
+          - os: ubuntu-22.04
+            target: x86_64-unknown-linux-gnu
+            variant: tray
     steps:
       - uses: actions/checkout@v4
 
