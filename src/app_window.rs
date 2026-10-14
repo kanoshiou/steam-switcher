@@ -122,7 +122,6 @@ impl AppWindow {
             switch_target: None,
         }
     }
-
     /// Reload config, accounts and games from disk (called on window show and
     /// after explicit refreshes), and recompute the cached UI facts. Expensive
     /// work stays here — render reads the results.
@@ -168,7 +167,7 @@ impl AppWindow {
 
     /// The custom title bar: drag area, brand, current-account pill and the
     /// native window control areas (min / max / close-to-tray).
-    fn title_bar(&self, cx: &Context<Self>) -> gpui_kit::Div {
+    fn title_bar(&self, maximized: bool, cx: &Context<Self>) -> gpui_kit::Div {
         let theme = cx.theme().clone();
 
         // Brand: blue tile + product name + version chip.
@@ -238,38 +237,54 @@ impl AppWindow {
             .h(px(44.0))
             .flex()
             .items_center()
-            .justify_between()
             .px(px(12.0))
             .bg(theme.title_bar)
             .border_b_1()
             .border_color(theme.title_bar_border)
-            .window_control_area(WindowControlArea::Drag)
-            .child(brand)
-            .children(pill)
-            .child(self.window_controls())
+            // The drag area must NOT wrap the buttons: control-area hitboxes
+            // are tested in paint order (ancestors first), so a bar-wide Drag
+            // area would shadow the buttons' Min/Max/Close and every click on
+            // them would turn into a window move. Same split as the kit's
+            // TitleBar — drag covers the left strip only, the controls hang
+            // outside of it as a sibling.
+            .child(
+                div()
+                    .flex()
+                    .items_center()
+                    .flex_1()
+                    .min_w(px(0.0))
+                    .h_full()
+                    .overflow_hidden()
+                    .window_control_area(WindowControlArea::Drag)
+                    .child(brand)
+                    // Equal flexible spacers keep the pill centered between
+                    // the brand and the controls, as in the mockup.
+                    .child(div().flex_1())
+                    .children(pill)
+                    .child(div().flex_1()),
+            )
+            .child(self.window_controls(maximized))
     }
 
-    /// Min / max / close buttons. Plain click handlers — `window_control_area`
-    /// markers swallow gpui click events, so the buttons must not carry them
-    /// (only the bar's drag area does). Close routes through the app's
-    /// minimize-to-tray veto and highlights red on hover.
-    fn window_controls(&self) -> gpui_kit::Div {
+    /// Min / max / close buttons. Handlers are the platform non-client hit
+    /// tests — `WindowControlArea::Min/Max/Close` — which the Windows backend
+    /// turns into WM_NCLBUTTONDOWN/UP sys-commands (minimize / toggle zoom /
+    /// WM_CLOSE). No gpui click handlers: the WM_NCLBUTTONDOWN deliver is
+    /// forwarded into the app only as mouse-down, and the up side is consumed
+    /// by the platform. Close still goes through `on_window_should_close`, so
+    /// the minimize-to-tray veto applies unchanged.
+    fn window_controls(&self, maximized: bool) -> gpui_kit::Div {
         div()
             .flex()
             .items_center()
             .gap(px(4.0))
-            .child(window_control_button("titlebar-min", IconName::Minus, false, |window, _cx| {
-                window.minimize_window();
-            }))
-            .child(window_control_button("titlebar-max", IconName::Square, false, |window, _cx| {
-                window.zoom_window();
-            }))
+            .child(window_control_button("titlebar-min", IconName::WindowMinimize, false))
             .child(window_control_button(
-                "titlebar-close",
-                IconName::X,
-                true,
-                |_window, cx| crate::app::close_main_window(cx),
+                "titlebar-max",
+                if maximized { IconName::WindowRestore } else { IconName::WindowMaximize },
+                false,
             ))
+            .child(window_control_button("titlebar-close", IconName::WindowClose, true))
     }
 
     // -------------------------------------------------------------- sidebar
@@ -1093,7 +1108,7 @@ impl AppWindow {
 }
 
 impl Render for AppWindow {
-    fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+    fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let theme = cx.theme().clone();
         let page = match self.page {
             Page::Users => self.users_page(cx).into_any_element(),
@@ -1108,7 +1123,10 @@ impl Render for AppWindow {
             .flex_col()
             .bg(theme.background)
             .text_color(theme.foreground)
-            .child(self.title_bar(cx))
+            // Read at render time, not from a stored flag: maximize/restore
+            // arrives as WM_SIZE, which re-runs this render, so the
+            // maximize/restore glyph tracks the window live.
+            .child(self.title_bar(window.is_maximized(), cx))
             .child(
                 div()
                     .flex()
@@ -1443,13 +1461,15 @@ fn page_of(id: &'static str) -> Page {
     }
 }
 
-/// A title-bar control button (plain click handling; see `window_controls`).
-/// `danger` gives the close button its rose hover.
+/// A title-bar control button, driven by the platform non-client hit tests
+/// (`WindowControlArea`). The Windows backend answers WM_NCHITTEST with the
+/// first control area under the cursor and turns the resulting click into the
+/// corresponding sys-command, so these buttons deliberately carry no gpui
+/// click handlers. `danger` gives the close button its rose hover.
 fn window_control_button(
     id: &'static str,
     icon: IconName,
     danger: bool,
-    on_click: impl Fn(&mut Window, &mut gpui_kit::App) + 'static,
 ) -> Stateful<gpui_kit::Div> {
     let button = div()
         .id(SharedString::from(id))
@@ -1460,7 +1480,11 @@ fn window_control_button(
         .rounded(px(8.0))
         .text_color(gpui_kit::hsla(0.0, 0.0, 0.55, 1.0))
         .child(Icon::new(icon))
-        .on_click(move |_event, window, cx| on_click(window, cx));
+        .window_control_area(match id {
+            "titlebar-min" => WindowControlArea::Min,
+            "titlebar-max" => WindowControlArea::Max,
+            _ => WindowControlArea::Close,
+        });
     if danger {
         button.hover(|style| {
             style
